@@ -89,6 +89,6 @@ let out_1 = List.fold_left sum_parts 0 parts
 let out_2 = 2
 
 let main () =
-    Printf.printf "Day two part one answer is %d\n" out_1;
-    Printf.printf "Day two part two answer is %d\n" out_2
+  Printf.printf "Day 3 Part 1 --> %d\n" out_1;
+  Printf.printf "Day 3 Part 2 --> %d\n" out_2
 ;;
