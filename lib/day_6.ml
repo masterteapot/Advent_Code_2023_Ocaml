@@ -1,10 +1,10 @@
 open Batteries
 
-type race_leg = {
-    time : int;
-    distance : int;
-    mutable num_winners : int
-}
+type race_leg =
+  { time : int
+  ; distance : int
+  ; mutable num_winners : int
+  }
 
 let get_digits raw =
   let rec aux raw inner out =
@@ -20,44 +20,49 @@ let get_digits raw =
 ;;
 
 let get_races digits =
-    assert (List.length digits = 2);
-    let times = List.at digits 0 in
-    let distances = List.at digits 1 in
-    let rec aux times distances acc =
-        match times, distances with
-        | [], [] -> List.rev acc
-        | time :: xt, distance :: yt -> aux xt yt ({ time ; distance; num_winners = 0 } :: acc)
-        | _, _ -> failwith "something isn't right"
-    in
-    aux times distances []
+  assert (List.length digits = 2);
+  let times = List.at digits 0 in
+  let distances = List.at digits 1 in
+  let rec aux times distances acc =
+    match times, distances with
+    | [], [] -> List.rev acc
+    | time :: xt, distance :: yt -> aux xt yt ({ time; distance; num_winners = 0 } :: acc)
+    | _, _ -> failwith "something isn't right"
+  in
+  aux times distances []
 ;;
 
 let get_races_v2 digits =
-    assert (List.length digits = 2);
-    let time = List.at digits 0 in
-    let distance = List.at digits 1 in
-    { time ; distance; num_winners = 0 }
+  assert (List.length digits = 2);
+  let time = List.at digits 0 in
+  let distance = List.at digits 1 in
+  { time; distance; num_winners = 0 }
 ;;
 
-
 let print_race race =
-    Printf.printf "Time: %d || Distance: %d || Num Winners: %d \n" race.time race.distance race.num_winners
+  Printf.printf
+    "Time: %d || Distance: %d || Num Winners: %d \n"
+    race.time
+    race.distance
+    race.num_winners
+;;
 
 let calc_time time race =
-    let speed = time in
-    let remaining_time = race.time - time in
-    speed * remaining_time
+  let speed = time in
+  let remaining_time = race.time - time in
+  speed * remaining_time
 ;;
 
 let run_races race =
-    let rec aux counter =
-        match counter with
-        | _ when counter > race.time -> race
-        | x -> let race_distance = calc_time x race in
-        if race_distance > race.distance then race.num_winners <- (race.num_winners + 1);
-                aux (counter + 1)
-    in
-    aux 1
+  let rec aux counter =
+    match counter with
+    | _ when counter > race.time -> race
+    | x ->
+      let race_distance = calc_time x race in
+      if race_distance > race.distance then race.num_winners <- race.num_winners + 1;
+      aux (counter + 1)
+  in
+  aux 1
 ;;
 
 let get_digits_single raw =
