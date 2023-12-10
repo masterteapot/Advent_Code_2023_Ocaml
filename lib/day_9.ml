@@ -44,24 +44,36 @@ let print_lld a_list =
 ;;
 
 let calc_end_value calc_list = List.fold_left (fun acc x -> acc + List.last x) 0 calc_list
-let calc_start_value calc_list = List.fold_left (fun acc x -> acc + List.hd x) 0 calc_list
+
+let calc_start_value calc_list = 
+    let rec aux calc_list =
+        match calc_list with
+        | hd :: md :: tl -> 
+            let cur_start = List.hd md in
+            let last_start = List.hd hd in
+            let new_head = cur_start - last_start in
+            aux ((new_head :: md) :: tl)
+        | hd :: [] -> List.hd hd
+        | [] -> failwith "List is too short"
+    in
+    aux calc_list
+;;
 
   let input =
-    Utilities.read_lines "inputs/9_t.txt"
+    Utilities.read_lines "inputs/9.txt"
     |> Utilities.remove_empty_string
     |> List.map String.explode
     |> List.map (fun x -> parse_ints x)
     |> List.map run_calcs
 (* Part 1 *)
 let part_one () =
-  List.iter (print_lld) input;
   let out_1 = input |> List.map calc_end_value |> List.fold_left ( + ) 0 in
   Printf.printf "Day 9 Part 1 --> %d\n" out_1
 ;;
 
 (* Part 2 *)
 let part_two () =
-  let out_2 = input |> List.map calc_start_value |> List.fold_left ( + ) 0 in
+  let out_2 = input |> List.map calc_start_value  |> List.fold_left ( + ) 0 in
   Printf.printf "Day 9 Part 2 --> %d\n" out_2
 ;;
 
