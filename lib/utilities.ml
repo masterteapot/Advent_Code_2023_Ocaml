@@ -60,3 +60,6 @@ let print_llc a_list =
 
 (** Takes a [int * int] prints it with an ending new line. No leading newline added. *)
 let print_td td = Printf.printf "(%d, %d)\n" (fst td) (snd td)
+
+(** Takes a [int * int] * [int * int] prints it with an ending new line. No leading newline added. *)
+let print_ttd td = Printf.printf "(%d, %d), (%d, %d)\n" (fst (fst td)) (fst (snd td)) (snd (fst td)) (snd (snd td))
