@@ -20,6 +20,8 @@ let () =
     (* Adv_2023.Day_9.main(); *)
     (* print_endline "<><><><><> Day 10 <><><><><>"; *)
     (* Adv_2023.Day_10.main(); *)
-    print_endline "<><><><><> Day 11 <><><><><>";
-    Adv_2023.Day_11.main();
+    (* print_endline "<><><><><> Day 11 <><><><><>"; *)
+    (* Adv_2023.Day_11.main(); *)
+    print_endline "<><><><><> Day 12 <><><><><>";
+    Adv_2023.Day_12.main();
     print_endline "End of program"
