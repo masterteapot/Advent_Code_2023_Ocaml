@@ -19,27 +19,13 @@ let print_diagram map =
   print_string ")"
 ;;
 
-let break_maps map =
-  let rec aux map ls acc =
-    match map with
-    | [] ->
-      let new_acc = if ls = [] then acc else List.rev ls :: acc in
-      List.rev new_acc
-    | '.' :: tl ->
-      let new_acc = if ls = [] then acc else List.rev ls :: acc in
-      aux tl [] new_acc
-    | c :: tl -> aux tl (c :: ls) acc
-  in
-  aux map [] []
-;;
-
 let parse_inputs input =
   let rec aux input acc =
     match input with
     | [] -> acc
     | hd :: tl ->
       let groups = String.split_on_char ' ' hd in
-      let left = List.hd groups |> String.explode |> break_maps in
+      let left = List.hd groups |> String.split_on_char '.' |> List.filter (fun x -> x <> "") in
       let right =
         List.at groups 1 |> String.split_on_char ',' |> List.map int_of_string
       in
@@ -48,56 +34,24 @@ let parse_inputs input =
   aux input []
 ;;
 
-let split_on_next fields =
-  print_llc fields;
-  let rec aux fields =
-    match fields with
-    | [] -> false, []
-    | hd :: otl ->
-      (match hd with
-       | [] -> aux otl
-       | '?' :: itl -> true, itl :: otl
-       | _ :: itl -> aux (itl :: otl))
-  in
-  aux fields
+let rec score map key =
+    match map, key with
+    | _, [] -> 1
+    | [], _ -> 0
+    | a :: atl, b :: btl when a = b -> score atl btl
+    | a :: atl, bls -> score atl bls
 ;;
 
-let count_solutions map =
-  let field, digits =
-    match map with
-    | f, d -> f, d
-  in
-  (* let num_digits = List.length digits in *)
-  let rec aux inner_digits inner_field outer_field acc =
-    match inner_digits with
-    | [] ->
-      let more_splits = split_on_next outer_field in
-      print_newline ();
-      if fst more_splits
-      then aux digits (snd more_splits) (snd more_splits) (acc + 1)
-      else acc + 1
-    | n :: ntl ->
-      (match inner_field with
-       | [] -> acc
-       | f :: ftl when List.length f = n -> aux ntl ftl outer_field acc
-       | f :: ftl when List.length f < n -> aux (n :: ntl) ftl outer_field acc
-       | f :: ftl when List.length f > n ->
-         let split_field = List.drop n f in
-         aux ntl (split_field :: ftl) outer_field acc
-       | _ -> failwith "how can this be possible?")
-  in
-  aux digits field field 0
-;;
 
-let input = Utilities.read_lines "inputs/12_t.txt" |> Utilities.remove_empty_string
-let clean_out = parse_inputs input
-let t = List.at clean_out 5
-let solution = count_solutions t
+let t = score [2; 1; 3; 2; 3] [1; 2; 3] 
+
 let () = print_newline ()
 let () = print_newline ()
-let () = List.iter print_endline input
+
+let () = print_int t
+
 let () = print_newline ()
-let () = print_diagram t
+let () = print_newline ()
 
 (* ???.### 1,1,3 <-- 1 *)
 (* .??..??...?##. 1,1,3 <-- 4 *)
@@ -110,7 +64,7 @@ let () = print_diagram t
 
 (* Part 1 *)
 let part_one () =
-  let out_1 = solution in
+  let out_1 = 1 in
   Printf.printf "Day 12 Part 1 --> %d\n" out_1
 ;;
 
@@ -124,4 +78,3 @@ let main () =
   part_one ();
   part_two ()
 ;;
-

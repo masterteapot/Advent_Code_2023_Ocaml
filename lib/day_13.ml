@@ -42,15 +42,46 @@ let find_smudge a_str b_str =
   result
 ;;
 
-(* Instead of trying to find two matches next to each other, I need to walk out and check opposing ones when finding a natural match as well!!! *)
-let find_solution_p2 input =
+(* walk till match, check smudges adjacent *)
+let reg_match_smudge_finish input =
+  let rec smudgy_finish a_list b_list counter =
+    match a_list, b_list with
+    | [], [] when counter = 1 -> true
+    | [], [] -> false
+    | _ when counter > 1 -> false
+    | ad :: al, bd :: bl when ad = bd -> smudgy_finish al bl counter
+    | ad :: al, bd :: bl when Tuple3.first (find_smudge ad bd) ->
+      smudgy_finish al bl (counter + 1)
+    | ad :: al, bd :: bl when not @@ Tuple3.first (find_smudge ad bd) -> false
+    | _ -> failwith "Unexpected case of matching smudgy lists"
+  in
+  let rec aux input acc =
+    match input with
+    | hd :: md :: tl when hd = md ->
+      let a = hd :: acc in
+      let b = md :: tl in
+      let a_len = List.length a in
+      let b_len = List.length b in
+      let a_crop, b_crop =
+        if a_len = b_len
+        then a, b
+        else if a_len > b_len
+        then List.take b_len a, b
+        else a, List.take a_len b
+      in
+      if smudgy_finish a_crop b_crop 0 then a_len else aux (md :: tl) (hd :: acc)
+    | hd :: tl -> aux tl (hd :: acc)
+    | [] -> 0
+  in
+  aux input []
+;;
+
+(* walk matching smudges until a match *)
+let smudge_match_reg_finish input =
   let rec aux input acc =
     match input with
     | hd :: md :: tl when Tuple3.first (find_smudge hd md) ->
       let _, new_hd, new_md = find_smudge hd md in
-      print_endline "";
-      print_endline "we found a result";
-      print_endline (new_hd ^ " | " ^ new_md);
       let a = new_hd :: acc in
       let b = new_md :: tl in
       let a_len = List.length a in
@@ -62,18 +93,6 @@ let find_solution_p2 input =
     | [] -> 0
   in
   aux input []
-;;
-
-let count_points_p2 reflections =
-  let rows = find_solution_p2 (fst reflections) in
-  let cols = find_solution_p2 (snd reflections) in
-  if rows > 0 && cols > 0
-  then failwith "What is going on? More than 1 solutions?"
-  else if rows > 0
-  then rows * 100
-  else if cols > 0
-  then cols
-  else failwith "What is going on? No answers?"
 ;;
 
 let find_solution input =
@@ -115,10 +134,35 @@ let group_input input =
   aux input [] []
 ;;
 
-let input_p2 = Utilities.read_lines "inputs/13_t.txt"
-let grouped_input_p2 = group_input input_p2
-let exploded_p2 = List.map explode_puzzles grouped_input_p2
-let points_p2 = List.map count_points_p2 exploded_p2 |> List.fold_left ( + ) 0
+let count_points_p2 reflections =
+  let rows_smudge_start = smudge_match_reg_finish (fst reflections) in
+  let rows_smudge_finish = reg_match_smudge_finish (fst reflections) in
+  let cols_smudge_start = smudge_match_reg_finish (snd reflections) in
+  let cols_smudge_finish = reg_match_smudge_finish (snd reflections) in
+  let rows =
+    if rows_smudge_start > 0
+    then rows_smudge_start
+    else if rows_smudge_finish > 0
+    then rows_smudge_finish
+    else 0
+  in
+  let cols =
+    if cols_smudge_start > 0
+    then cols_smudge_start
+    else if cols_smudge_finish > 0
+    then cols_smudge_finish
+    else 0
+  in
+  if rows > 0 && cols > 0
+  then failwith "What is going on? More than 1 solutions?"
+  else if rows > 0
+  then rows * 100
+  else if cols > 0
+  then cols
+  else failwith "What is going on? No answers?"
+;;
+
+let () = print_newline ()
 
 (* Part 1 *)
 let part_one () =
@@ -132,7 +176,11 @@ let part_one () =
 
 (* Part 2 *)
 let part_two () =
-  let out_2 = 0 in
+  let input_p2 = Utilities.read_lines "inputs/13.txt" in
+  let grouped_input_p2 = group_input input_p2 in
+  let exploded_p2 = List.map explode_puzzles grouped_input_p2 in
+  let points_p2 = List.map count_points_p2 exploded_p2 |> List.fold_left ( + ) 0 in
+  let out_2 = points_p2 in
   Printf.printf "Day 13 Part 2 --> %d\n" out_2
 ;;
 
