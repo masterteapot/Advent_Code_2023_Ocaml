@@ -1,5 +1,5 @@
 open Batteries
-open Utilities
+(* open Utilities *)
 
 let print_diagram map =
   let field, digits =
@@ -39,7 +39,7 @@ let rec score map key =
     | _, [] -> 1
     | [], _ -> 0
     | a :: atl, b :: btl when a = b -> score atl btl
-    | a :: atl, bls -> score atl bls
+    | _ :: atl, bls -> score atl bls
 ;;
 
 

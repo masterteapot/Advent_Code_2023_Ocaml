@@ -52,7 +52,7 @@ let reg_match_smudge_finish input =
     | ad :: al, bd :: bl when ad = bd -> smudgy_finish al bl counter
     | ad :: al, bd :: bl when Tuple3.first (find_smudge ad bd) ->
       smudgy_finish al bl (counter + 1)
-    | ad :: al, bd :: bl when not @@ Tuple3.first (find_smudge ad bd) -> false
+    | ad :: _, bd :: _ when not @@ Tuple3.first (find_smudge ad bd) -> false
     | _ -> failwith "Unexpected case of matching smudgy lists"
   in
   let rec aux input acc =
