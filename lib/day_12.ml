@@ -63,7 +63,7 @@ let walker (map, key) =
 (* Total is 21 arrangements *)
 
 let () = print_newline ()
-let input = read_lines "./inputs/12_t.txt" |> remove_empty_string |> parse_inputs
+let input = read_lines "./inputs/12.txt" |> remove_empty_string |> parse_inputs
 
 let counted = List.map walker input
 let res_1 = (List.fold_left ( + ) 0 counted)

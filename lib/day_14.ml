@@ -49,17 +49,17 @@ let stone_weigher stones =
     stones
 ;;
 
-let input = read_lines "inputs/14_t.txt" |> remove_empty_string |> List.map String.explode
+let input = read_lines "inputs/14.txt" |> remove_empty_string |> List.map String.explode
 let stones = make_stone_array input
-let () = print_newline ()
-let () = print_newline ()
-let () = print_simple_stone_array stones
-let () = print_newline ()
+(* let () = print_newline () *)
+(* let () = print_newline () *)
+(* let () = print_simple_stone_array stones *)
+(* let () = print_newline () *)
 let () = stone_walker stones
-let () = print_newline ()
-let () = print_newline ()
-let () = print_simple_stone_array stones
-let () = print_newline ()
+(* let () = print_newline () *)
+(* let () = print_newline () *)
+(* let () = print_simple_stone_array stones *)
+(* let () = print_newline () *)
 
 (* Part 1 *)
 let part_one () =
