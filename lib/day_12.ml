@@ -62,6 +62,13 @@ let walker (map, key) =
 
 (* Total is 21 arrangements *)
 
+
+
+(* Part 2 *)
+(* Repeat first group 5 times separated by '?' repeat 2nd section *)
+(* ???.###????.###????.###????.###????.### 1,1,3,1,1,3,1,1,3,1,1,3,1,1,3 *)
+
+
 let () = print_newline ()
 let input = read_lines "./inputs/12.txt" |> remove_empty_string |> parse_inputs
 

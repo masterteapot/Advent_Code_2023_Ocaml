@@ -18,10 +18,10 @@ type space =
   { symbol : char
   ; mirr : mirror
   ; mutable energized : bool
-  ; mutable count_up : int
-  ; mutable count_down : int
-  ; mutable count_left : int
-  ; mutable count_right : int
+  ; mutable up : bool
+  ; mutable down : bool
+  ; mutable left : bool
+  ; mutable right : bool
   }
 
 let print_mirrors mirrors =
@@ -50,10 +50,10 @@ let make_mirror_array input =
                | '|' -> Vertical
                | _ -> failwith "unexpected char")
           ; energized = false
-          ; count_up = 0
-          ; count_down = 0
-          ; count_left = 0
-          ; count_right = 0
+          ; up = false
+          ; down = false
+          ; left = false
+          ; right = false
           })
         x)
     mirrors
@@ -86,28 +86,33 @@ let energize_mirrors mirrors =
   let max_y = Array.length mirrors in
   let max_x = Array.length mirrors.(0) in
   let rec aux x y dir =
-    print_td (x, y);
-    if x < 0 || x >= max_x || y < 0 || y >= max_y
+    if x < 0
+       || x >= max_x
+       || y < 0
+       || y >= max_y
+       || (dir = Right && mirrors.(y).(x).right)
+       || (dir = Down && mirrors.(y).(x).down)
+       || (dir = Left && mirrors.(y).(x).left)
+       || (dir = Up && mirrors.(y).(x).up)
     then ()
     else (
-      let m = mirrors.(y).(x) in
-      mirrors.(y).(x).energized <- true;
-      if dir = Right && m.count_right > 0
-      then ()
-      else if dir = Left && m.count_left > 0
-      then ()
-      else if dir = Up && m.count_up > 0
-      then ()
-      else if dir = Down && m.count_down > 0
-      then ();
       if dir = Right
-      then mirrors.(y).(x).count_right <- 1
+      then (
+        mirrors.(y).(x).right <- true;
+        mirrors.(y).(x).energized <- true)
       else if dir = Left
-      then mirrors.(y).(x).count_left <- 1
+      then (
+        mirrors.(y).(x).left <- true;
+        mirrors.(y).(x).energized <- true)
       else if dir = Up
-      then mirrors.(y).(x).count_up <- 1
+      then (
+        mirrors.(y).(x).up <- true;
+        mirrors.(y).(x).energized <- true)
       else if dir = Down
-      then mirrors.(y).(x).count_down <- 1;
+      then (
+        mirrors.(y).(x).down <- true;
+        mirrors.(y).(x).energized <- true);
+      let m = mirrors.(y).(x) in
       match dir with
       | Right when m.mirr = Vertical ->
         aux x (y + 1) Down;
@@ -137,6 +142,14 @@ let energize_mirrors mirrors =
   aux 0 0 Right
 ;;
 
+let count_energies mirrors =
+  Array.fold_left
+    (fun acc x ->
+      Array.fold_left (fun bcc y -> if y.energized then 1 + bcc else bcc) 0 x + acc)
+    0
+    mirrors
+;;
+
 let input = read_lines "inputs/16_t.txt" |> remove_empty_string
 let mirrors = List.map String.explode input |> make_mirror_array
 let () = print_newline ()
@@ -154,7 +167,7 @@ let () = print_newline ()
 
 (* Part 1 *)
 let part_one () =
-  let out_1 = 1 in
+  let out_1 = count_energies mirrors in
   Printf.printf "Day 16 Part 1 --> %d\n" out_1
 ;;
 
