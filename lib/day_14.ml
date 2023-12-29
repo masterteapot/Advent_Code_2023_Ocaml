@@ -130,14 +130,14 @@ let washing_machine stones =
       circle_walker stones;
       let score = stone_weigher stones in
       let cycle = cycle + 1 in
-      let in_list = score :: in_list in
+      let new_list = score :: in_list in
       let out_list =
-        if List.length in_list > List.length out_list then in_list else out_list
+        if List.length new_list > List.length out_list then new_list else out_list
       in
       let match_counter =
-        if in_list = out_list then match_counter + 1 else match_counter
+        if new_list = out_list then match_counter + 1 else match_counter
       in
-      let in_list = if in_list = out_list then [] else in_list in
+      let in_list = if new_list = out_list then [] else new_list in
       aux cycle match_counter in_list out_list)
   in
   aux 1 0 [] []
