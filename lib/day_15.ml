@@ -50,7 +50,7 @@ let operate_boxes boxes instructions =
   in
   let rec aux = function
     | [] -> boxes
-    | (lbl, Minus, fl) :: tl ->
+    | (lbl, Minus, _) :: tl ->
       let hm = String.explode lbl |> List.fold_left calculate_hash 0 in
       let b = boxes.(hm) in
       boxes.(hm) <- List.filter (fun x -> fst x <> lbl) b;
