@@ -46,6 +46,17 @@ let get_llc ll pos =
   List.at in_list (fst pos)
 ;;
 
+(** Takes an array [int array array] and prints it in a basic format*)
+let print_aai ax =
+  Array.iter
+    (fun x ->
+      print_newline ();
+      Array.iter (fun y -> Printf.printf "%d, " y) x;
+      print_newline ())
+    ax;
+  print_newline ()
+;;
+
 (** Takes a list [int list char] and prints the list in a basic format*)
 let print_llc a_list =
   print_newline ();
@@ -62,4 +73,11 @@ let print_llc a_list =
 let print_td td = Printf.printf "(%d, %d)\n" (fst td) (snd td)
 
 (** Takes a [int * int] * [int * int] prints it with an ending new line. No leading newline added. *)
-let print_ttd td = Printf.printf "(%d, %d), (%d, %d)\n" (fst (fst td)) (fst (snd td)) (snd (fst td)) (snd (snd td))
+let print_ttd td =
+  Printf.printf
+    "(%d, %d), (%d, %d)\n"
+    (fst (fst td))
+    (fst (snd td))
+    (snd (fst td))
+    (snd (snd td))
+;;
