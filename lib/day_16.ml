@@ -150,7 +150,7 @@ let count_energies mirrors =
     mirrors
 ;;
 
-let input = read_lines "inputs/16_t.txt" |> remove_empty_string
+let input = read_lines "inputs/16.txt" |> remove_empty_string
 let mirrors = List.map String.explode input |> make_mirror_array
 let () = print_newline ()
 let () = print_newline ()
