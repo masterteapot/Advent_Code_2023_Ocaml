@@ -65,7 +65,12 @@ let trench_walker acc i =
   aux (fst cur) (snd cur) i.dir i.count acc
 ;;
 
-let measure_trenches trenches acc i =
+let measure_trenches trenches =
+  let min_x = List.min (List.map fst trenches) in
+  let max_x = List.max (List.map fst trenches) in
+  let min_y = List.min (List.map snd trenches) in
+  let max_y = List.max (List.map snd trenches) in
+    let rec aux hole acc =
   let in_trench = List.filter (fun x -> fst x = i) trenches |> List.map snd in
   let min_t = List.min in_trench in
   let max_t = List.max in_trench in
@@ -77,8 +82,7 @@ let input =
 ;;
 
 let trenches = List.fold_left trench_walker [ 0, 0 ] input
-let edge = List.unique ~eq:(fun x y -> fst x = fst y) trenches |> List.map fst
-let hole_size = List.fold_left (measure_trenches trenches) 0 edge
+let hole_size = measure_trenches trenches
 
 (* Part 1 *)
 let part_one () =
