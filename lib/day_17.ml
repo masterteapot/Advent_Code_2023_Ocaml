@@ -1,6 +1,7 @@
-open Batteries
+open Base
+open Core
 open Utilities
-open Printf
+(* open Printf *)
 
 type dir =
   | N
@@ -94,7 +95,7 @@ let walker max_paths max_ref aai best_progress =
 ;;
 
 let input =
-  read_lines "inputs/17.txt"
+  read_lines "inputs/17_t.txt"
   |> remove_empty_string
   |> List.map String.explode
   |> List.map (List.map (String.make 1))
@@ -112,7 +113,7 @@ let () = print_newline ()
 let max_y = pred @@ Array.length city
 let max_x = pred @@ Array.length city.(0)
 let best_progress = Array.make (max_y + max_x + 2) []
-let max_paths = List.init 7 (fun x -> Int.pow (x + 1) 4)
+let max_paths = List.init 1 (fun x -> Int.pow (x + 1) 4)
 let output = List.fold_left (fun acc x -> walker x acc city best_progress) 2000 max_paths
 let () = print_newline ()
 let () = print_newline ()

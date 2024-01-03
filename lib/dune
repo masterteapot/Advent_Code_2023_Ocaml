@@ -1,4 +1,4 @@
 (library
  (name adv_2023)
- (libraries core batteries)
+ (libraries base core batteries)
  )

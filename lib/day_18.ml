@@ -1,4 +1,5 @@
-open Batteries
+open Base
+open Core
 open Utilities
 open Printf
 
@@ -16,25 +17,46 @@ type instructions =
   }
 
 let map_instructions i =
-  let groups = String.split_on_char ' ' i in
+  let groups = String.split ~on:' ' i in
   assert (List.length groups = 3);
   let rec aux acc = function
     | '(' :: tl -> aux acc tl
-    | ')' :: tl -> String.of_list @@ List.rev acc
+    | ')' :: _ -> String.of_list @@ List.rev acc
     | hd :: tl -> aux (hd :: acc) tl
     | [] -> failwith "We should have already exited"
   in
-  let color_code = aux [] (String.explode @@ List.at groups 2) in
+  let color_code =
+    aux
+      []
+      (String.to_list
+       @@
+       match List.nth groups 2 with
+       | Some x -> x
+       | None -> failwith "missing string")
+  in
   let dir =
-    match List.at groups 0 with
-    | "R" -> E
-    | "D" -> S
-    | "L" -> W
-    | "U" -> N
+    match List.nth groups 0 with
+    | Some "R" -> E
+    | Some "D" -> S
+    | Some "L" -> W
+    | Some "U" -> N
     | _ -> failwith "unexpected instruction string"
   in
-  let count = int_of_string (List.at groups 1) in
-  { dir; count; color_code; c = List.at groups 0 }
+  let count =
+    int_of_string
+    @@
+    match List.nth groups 1 with
+    | Some x -> x
+    | None -> failwith "i dunno"
+  in
+  { dir
+  ; count
+  ; color_code
+  ; c =
+      (match List.nth groups 0 with
+       | Some x -> x
+       | None -> failwith "i dunno 2")
+  }
 ;;
 
 let print_instructions i =
@@ -51,7 +73,11 @@ let print_instructions i =
 ;;
 
 let trench_walker acc i =
-  let cur = List.hd acc in
+  let cur =
+    match List.hd acc with
+    | Some x -> x
+    | None -> failwith "List is empty"
+  in
   let rec aux x y dir count acc =
     if count = 0
     then acc
@@ -65,28 +91,23 @@ let trench_walker acc i =
   aux (fst cur) (snd cur) i.dir i.count acc
 ;;
 
-let measure_trenches trenches =
-  let min_x = List.min (List.map fst trenches) in
-  let max_x = List.max (List.map fst trenches) in
-  let min_y = List.min (List.map snd trenches) in
-  let max_y = List.max (List.map snd trenches) in
-    let rec aux hole acc =
-  let in_trench = List.filter (fun x -> fst x = i) trenches |> List.map snd in
-  let min_t = List.min in_trench in
-  let max_t = List.max in_trench in
-  acc + max_t - min_t + 1
-;;
+(* let measure_trenches trenches = *)
+(*   let min_x = List.min (List.map fst trenches) in *)
+(*   let max_x = List.max (List.map fst trenches) in *)
+(*   let min_y = List.min (List.map snd trenches) in *)
+(*   let max_y = List.max (List.map snd trenches) in *)
+(* ;; *)
 
 let input =
-  read_lines "inputs/18_t.txt" |> remove_empty_string |> List.map map_instructions
+  read_lines "inputs/18_t.txt" |> remove_empty_string |> List.map ~f:map_instructions
 ;;
 
-let trenches = List.fold_left trench_walker [ 0, 0 ] input
-let hole_size = measure_trenches trenches
+let trenches = List.fold_left input ~init:[ 0, 0 ] ~f:trench_walker
+(* let hole_size = measure_trenches trenches *)
 
 (* Part 1 *)
 let part_one () =
-  let out_1 = hole_size in
+  let out_1 = 1 in
   Printf.printf "Day 18 Part 1 --> %d\n" out_1
 ;;
 
