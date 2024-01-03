@@ -112,11 +112,13 @@ let () = print_newline ()
 (* let () = print_aai city *)
 let max_y = pred @@ Array.length city
 let max_x = pred @@ Array.length city.(0)
-let best_progress = Array.make (max_y + max_x + 2) []
-let max_paths = List.init 1 (fun x -> Int.pow (x + 1) 4)
-let output = List.fold_left (fun acc x -> walker x acc city best_progress) 2000 max_paths
+let best_progress = Array.make (max_y * max_x ) []
+let max_paths = List.init 8 (fun x -> Int.pow (x + 1) 4)
+let output = List.fold_left (fun acc x -> walker x acc city best_progress) 1000 max_paths
 let () = print_newline ()
 let () = print_newline ()
+
+(* last entry was 993 *)
 
 (* Part 1 *)
 let part_one () =
