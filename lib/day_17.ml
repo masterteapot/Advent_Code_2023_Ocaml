@@ -1,7 +1,8 @@
 open Base
-open Core
 open Utilities
-(* open Printf *)
+open Stdlib.Printf
+
+(* open Core *)
 
 type dir =
   | N
@@ -18,27 +19,29 @@ let array_of_list ls =
   match ls with
   | [] -> [||]
   | default :: _ ->
-    let arr = Array.make (List.length ls) default in
-    List.iteri (Array.set arr) ls;
+    let arr = Array.create ~len:(List.length ls) default in
+    List.iteri ~f:(Array.set arr) ls;
     arr
 ;;
 
-let city_map input aai = List.iteri (fun i x -> Array.set aai i (array_of_list x)) input
+let city_map input aai =
+  List.iteri ~f:(fun i x -> Array.set aai i (array_of_list x)) input
+;;
 
 let get_directions x y d m =
   match d, m with
-  | N, Left -> pred x, y, W
-  | E, Left -> x, pred y, N
-  | S, Left -> succ x, y, E
-  | W, Left -> x, succ y, S
-  | N, Right -> succ x, y, E
-  | E, Right -> x, succ y, S
-  | S, Right -> pred x, y, W
-  | W, Right -> x, pred y, N
-  | N, Straight -> x, pred y, N
-  | E, Straight -> succ x, y, E
-  | S, Straight -> x, succ y, S
-  | W, Straight -> pred x, y, W
+  | N, Left -> Int.pred x, y, W
+  | E, Left -> x, Int.pred y, N
+  | S, Left -> Int.succ x, y, E
+  | W, Left -> x, Int.succ y, S
+  | N, Right -> Int.succ x, y, E
+  | E, Right -> x, Int.succ y, S
+  | S, Right -> Int.pred x, y, W
+  | W, Right -> x, Int.pred y, N
+  | N, Straight -> x, Int.pred y, N
+  | E, Straight -> Int.succ x, y, E
+  | S, Straight -> x, Int.succ y, S
+  | W, Straight -> Int.pred x, y, W
 ;;
 
 let calc_distance start finish =
@@ -56,8 +59,8 @@ let rec update_ordered_list x ls acc =
 ;;
 
 let walker max_paths max_ref aai best_progress =
-  let max_y = pred @@ Array.length aai in
-  let max_x = pred @@ Array.length aai.(0) in
+  let max_y = Int.pred @@ Array.length aai in
+  let max_x = Int.pred @@ Array.length aai.(0) in
   let best_route = ref max_ref in
   let rec aux x y direction heat sc =
     let dist = calc_distance (x, y) (max_x, max_y) in
@@ -67,10 +70,22 @@ let walker max_paths max_ref aai best_progress =
        || x > max_x
        || y < 0
        || y > max_y
-       || (bp_length = max_paths && heat >= List.hd bp)
+       || (bp_length = max_paths
+           && heat
+              >=
+              match List.hd bp with
+              | Some x -> x
+              | None -> failwith "Not expecting empty list")
     then ()
     else (
-      let bp = if bp_length = max_paths then List.tl bp else bp in
+      let bp =
+        if bp_length = max_paths
+        then (
+          match List.tl bp with
+          | Some x -> x
+          | None -> failwith "Not expecting empty list")
+        else bp
+      in
       (match bp with
        | [] -> Array.set best_progress dist [ heat ]
        | bp -> Array.set best_progress dist (update_ordered_list heat bp []));
@@ -97,39 +112,43 @@ let walker max_paths max_ref aai best_progress =
 let input =
   read_lines "inputs/17_t.txt"
   |> remove_empty_string
-  |> List.map String.explode
-  |> List.map (List.map (String.make 1))
-  |> List.map (List.map Int.of_string)
+  |> List.map ~f:String.to_list
+  |> List.map ~f:(List.map ~f:(String.make 1))
+  |> List.map ~f:(List.map ~f:Int.of_string)
 ;;
 
-let () = print_newline ()
+let () = Stdlib.print_newline ()
 let max_y = List.length input
-let city = Array.make max_y [||]
+let city = Array.create ~len:max_y [||]
 let () = city_map input city
-let () = print_newline ()
-let () = print_newline ()
+let () = Stdlib.print_newline ()
+let () = Stdlib.print_newline ()
 
 (* let () = print_aai city *)
-let max_y = pred @@ Array.length city
-let max_x = pred @@ Array.length city.(0)
-let best_progress = Array.make (max_y * max_x ) []
-let max_paths = List.init 8 (fun x -> Int.pow (x + 1) 4)
-let output = List.fold_left (fun acc x -> walker x acc city best_progress) 1000 max_paths
-let () = print_newline ()
-let () = print_newline ()
+let max_y = Int.pred @@ Array.length city
+let max_x = Int.pred @@ Array.length city.(0)
+let best_progress = Array.create ~len:(max_y * max_x) []
+let max_paths = List.init 8 ~f:(fun x -> Int.pow (x + 1) 4)
+
+let output =
+  List.fold_left max_paths ~init:1000 ~f:(fun acc x -> walker x acc city best_progress)
+;;
+
+let () = Stdlib.print_newline ()
+let () = Stdlib.print_newline ()
 
 (* last entry was 993 *)
 
 (* Part 1 *)
 let part_one () =
   let out_1 = output in
-  Printf.printf "Day 17 Part 1 --> %d\n" out_1
+  printf "Day 17 Part 1 --> %d\n" out_1
 ;;
 
 (* Part 2 *)
 let part_two () =
   let out_2 = 2 in
-  Printf.printf "Day 17 Part 2 --> %d\n" out_2
+  printf "Day 17 Part 2 --> %d\n" out_2
 ;;
 
 let main () =
