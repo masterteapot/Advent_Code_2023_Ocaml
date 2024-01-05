@@ -23,6 +23,16 @@ type instructions =
   ; c : string
   }
 
+let move loc dir =
+  let x = fst loc in
+  let y = snd loc in
+  match dir with
+  | N -> x, Int.pred y
+  | E -> Int.succ x, y
+  | W -> Int.pred x, y
+  | S -> x, Int.succ y
+;;
+
 let map_instructions i =
   let groups = String.split ~on:' ' i in
   assert (List.length groups = 3);
@@ -96,17 +106,14 @@ let trench_walker acc i =
     | Some x -> x
     | None -> failwith "List is empty"
   in
-  let rec aux x y dir count acc =
+  let rec aux loc dir count acc =
     if count = 0
     then acc
     else (
-      match dir with
-      | N -> aux x (Int.pred y) dir (Int.pred count) ((x, Int.pred y) :: acc)
-      | E -> aux (Int.succ x) y dir (Int.pred count) ((Int.succ x, y) :: acc)
-      | S -> aux x (Int.succ y) dir (Int.pred count) ((x, Int.succ y) :: acc)
-      | W -> aux (Int.pred x) y dir (Int.pred count) ((Int.pred x, y) :: acc))
+      let new_loc = move loc dir in
+      aux new_loc dir (Int.pred count) (new_loc :: acc))
   in
-  aux (fst cur) (snd cur) i.dir i.count acc
+  aux cur i.dir i.count acc
 ;;
 
 let get_option x =
@@ -153,16 +160,6 @@ let update_grounds ~hash_grounds:h ~new_grounds:ls ~level:lv =
   aux ls
 ;;
 
-let move loc dir =
-  let x = fst loc in
-  let y = snd loc in
-  match dir with
-  | N -> x, Int.pred y
-  | E -> Int.succ x, y
-  | W -> Int.pred x, y
-  | S -> x, Int.succ y
-;;
-
 let out_of_bounds ~min_x ~max_x ~min_y ~max_y ~x ~y =
   x < min_x || x > max_x || y < min_y || y > max_y
 ;;
@@ -172,7 +169,6 @@ let am_i_trench ~hg =
   let rec get_accs acc_lvl acc loc =
     match acc_lvl with
     | NotTrench -> NotTrench, acc
-    | InTrench -> InTrench, acc
     | _ ->
       let level = Hashtbl.find hg loc in
       (match level with
@@ -192,13 +188,10 @@ let am_i_trench ~hg =
   let aux loc =
     let level = Hashtbl.find hg loc in
     match level with
-    | None -> ()
-    | Some NotTrench -> ()
-    | Some Trench -> ()
-    | Some InTrench -> ()
     | Some Unknown ->
       let level, acc = get_accs Unknown [] loc in
       update_grounds ~hash_grounds:hg ~new_grounds:acc ~level
+    | _ -> ()
   in
   List.iter keys ~f:aux
 ;;
@@ -234,7 +227,7 @@ let list_of_grounds h =
     if y > max_y
     then List.rev (List.rev sub_acc :: main_acc)
     else if x > max_x
-    then aux 0 (y + 1) [] (List.rev sub_acc :: main_acc)
+    then aux min_x (y + 1) [] (List.rev sub_acc :: main_acc)
     else aux (x + 1) y (Hashtbl.find h (x, y) :: sub_acc) main_acc
   in
   aux min_x min_y [] []
@@ -268,22 +261,24 @@ let () = am_i_trench ~hg:h
 let ls_of_hg = list_of_grounds h
 
 let trench_string =
-  List.map ls_of_hg 
-    ~f:(fun x ->
-    List.fold_left x ~init:""
-      ~f:(fun acc y ->
-          (match y with
-           | Some Trench -> acc ^ "# "
-           | Some InTrench -> acc ^  "I "
-           | Some NotTrench -> acc ^ ". "
-           | _ -> acc ^ "U "))
-      )
+  List.map ls_of_hg ~f:(fun x ->
+    Stdlib.string_of_int (List.length x)
+    ^ ": "
+    ^ List.fold_left x ~init:"" ~f:(fun acc y ->
+      match y with
+      | Some Trench -> acc ^ "# "
+      | Some InTrench -> acc ^ "+ "
+      | Some NotTrench -> acc ^ ". "
+      | _ -> acc ^ "U "))
 ;;
 
+
+(* New instructions have impossibly large numbers, I think the trick here is to find jumps based on numbers rather than mapping out continuous spacing *)
+(* let () = List.iter trench_string ~f:Stdlib.print_endline *)
+let () = Stdlib.print_newline ()
 let out = Stdio.Out_channel.create "trenches.txt"
 let () = Stdio.Out_channel.output_lines out trench_string
 let () = Stdio.Out_channel.close out
-
 let () = Stdlib.print_newline ()
 
 (* Part 1 *)
