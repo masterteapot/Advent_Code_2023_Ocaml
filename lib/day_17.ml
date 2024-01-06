@@ -1,5 +1,5 @@
 open Base
-open Utilities
+(* open Utilities *)
 open Stdlib.Printf
 
 (* open Core *)
@@ -109,39 +109,39 @@ let walker max_paths max_ref aai best_progress =
   !best_route
 ;;
 
-let input =
-  read_lines "inputs/17_t.txt"
-  |> remove_empty_string
-  |> List.map ~f:String.to_list
-  |> List.map ~f:(List.map ~f:(String.make 1))
-  |> List.map ~f:(List.map ~f:Int.of_string)
-;;
-
-let () = Stdlib.print_newline ()
-let max_y = List.length input
-let city = Array.create ~len:max_y [||]
-let () = city_map input city
-let () = Stdlib.print_newline ()
-let () = Stdlib.print_newline ()
-
-(* let () = print_aai city *)
-let max_y = Int.pred @@ Array.length city
-let max_x = Int.pred @@ Array.length city.(0)
-let best_progress = Array.create ~len:(max_y * max_x) []
-let max_paths = List.init 8 ~f:(fun x -> Int.pow (x + 1) 4)
-
-let output =
-  List.fold_left max_paths ~init:1000 ~f:(fun acc x -> walker x acc city best_progress)
-;;
-
-let () = Stdlib.print_newline ()
-let () = Stdlib.print_newline ()
+(* let input = *)
+(*   read_lines "inputs/17_t.txt" *)
+(*   |> remove_empty_string *)
+(*   |> List.map ~f:String.to_list *)
+(*   |> List.map ~f:(List.map ~f:(String.make 1)) *)
+(*   |> List.map ~f:(List.map ~f:Int.of_string) *)
+(* ;; *)
+(*  *)
+(* let () = Stdlib.print_newline () *)
+(* let max_y = List.length input *)
+(* let city = Array.create ~len:max_y [||] *)
+(* let () = city_map input city *)
+(* let () = Stdlib.print_newline () *)
+(* let () = Stdlib.print_newline () *)
+(*  *)
+(* (* let () = print_aai city *) *)
+(* let max_y = Int.pred @@ Array.length city *)
+(* let max_x = Int.pred @@ Array.length city.(0) *)
+(* let best_progress = Array.create ~len:(max_y * max_x) [] *)
+(* let max_paths = List.init 8 ~f:(fun x -> Int.pow (x + 1) 4) *)
+(*  *)
+(* let output = *)
+(*   List.fold_left max_paths ~init:1000 ~f:(fun acc x -> walker x acc city best_progress) *)
+(* ;; *)
+(*  *)
+(* let () = Stdlib.print_newline () *)
+(* let () = Stdlib.print_newline () *)
 
 (* last entry was 993 *)
 
 (* Part 1 *)
 let part_one () =
-  let out_1 = output in
+  let out_1 = 1 in
   printf "Day 17 Part 1 --> %d\n" out_1
 ;;
 

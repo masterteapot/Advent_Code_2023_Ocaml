@@ -1,6 +1,4 @@
 open Base
-
-(* open Core *)
 open Utilities
 open Stdlib.Printf
 
@@ -25,9 +23,8 @@ type instruction =
 
 type corner =
   { at : int * int
-  ; mutable next : int * int
-  ; mutable prev : int * int
-  ; in_corner : bool
+  ; next : int * int
+  ; prev : int * int
   }
 
 let move ~loc ~dir ~num =
@@ -119,7 +116,7 @@ let get_option x =
 let corners_of_instructions (ls : instruction list) =
   let cm =
     Base.Hashtbl.create
-      ~growth_allowed:false
+      ~growth_allowed:true
       ~size:(List.length ls)
       (module struct
         type t = int * int [@@deriving sexp, compare, hash]
@@ -134,10 +131,7 @@ let corners_of_instructions (ls : instruction list) =
         | None -> failwith "Couldn't find starting corner")
     | hd :: tl ->
       let new_loc = move ~loc ~dir:hd.dir ~num:hd.count in
-      Hashtbl.set
-        cm
-        ~key:loc
-        ~data:{ at = loc; next = new_loc; prev = List.hd_exn acc; in_corner = false };
+      Hashtbl.set cm ~key:loc ~data:{ at = loc; next = new_loc; prev = List.hd_exn acc };
       aux new_loc (loc :: acc) tl
   in
   aux (0, 0) [ 0, 0 ] ls;
@@ -256,10 +250,9 @@ let list_of_grounds h =
 ;;
 
 let input =
-  read_lines "inputs/18_t2.txt" |> remove_empty_string |> List.map ~f:map_instructions
+  read_lines "inputs/18_m2.txt" |> remove_empty_string |> List.map ~f:map_instructions
 ;;
 
-let cm = corners_of_instructions input
 let trenches = List.fold_left input ~init:[ 0, 0 ] ~f:trench_walker
 let grounds = make_grounds trenches
 
@@ -285,9 +278,7 @@ let ls_of_hg = list_of_grounds hg
 
 let trench_string =
   List.map ls_of_hg ~f:(fun x ->
-    Stdlib.string_of_int (List.length x)
-    ^ ": "
-    ^ List.fold_left x ~init:"" ~f:(fun acc y ->
+    List.fold_left x ~init:"" ~f:(fun acc y ->
       match y with
       | Some Trench -> acc ^ "# "
       | Some InTrench -> acc ^ "+ "
@@ -295,32 +286,83 @@ let trench_string =
       | _ -> acc ^ "U "))
 ;;
 
-let print_corner_map cm =
-  Hashtbl.iteri cm ~f:(fun ~key ~data ->
-    Stdlib.print_newline ();
-    printf
-      "{at: %d, %d; prev: %d, %d; next: %d, %d}"
-      (fst key)
-      (snd key)
-      (fst data.prev)
-      (snd data.prev)
-      (fst data.next)
-      (snd data.next);
-    Stdlib.print_newline ())
+let loc_comp x y = fst x = fst y && snd x = snd y
+
+let is_connected x y =
+  if loc_comp x.next y.at || loc_comp x.prev y.at then true else false
 ;;
 
-(* New instructions have impossibly large numbers, I think the trick here is to find jumps based on numbers rather than mapping out continuous spacing *)
+let get_inset cm x y a b =
+  let top = if snd x.at > snd y.at then x.at else y.at in
+  let bottom = if snd x.at < snd y.at then x.at else y.at in
+  let shortest = if fst a.at < fst b.at then a.at else b.at in
+  Hashtbl.filter_keys cm ~f:(fun x ->
+    snd x > snd bottom && snd x < snd top && fst x < fst shortest)
+;;
+
+let calc_height x y = abs (snd x - snd y) + 1
+let calc_width x y = abs (fst x - fst y) + 1
+
+let counting_corners cm =
+  let get_corner c = Hashtbl.find cm c |> get_option in
+  let c1 =
+    Hashtbl.keys cm
+    |> List.min_elt ~compare:(fun x y ->
+      if fst x > fst y then 1 else if fst x = fst y then 0 else -1)
+    |> get_option
+    |> get_corner
+  in
+  let c2 =
+    match c1 with
+    | x when fst x.next = fst x.at -> get_corner x.next
+    | x when fst x.prev = fst x.at -> get_corner x.prev
+    | _ -> failwith "we couldn't find a matching corner for the far left x"
+  in
+  let o1 = if loc_comp c1.next c2.at then get_corner c1.prev else get_corner c1.next in
+  let o2 = if loc_comp c2.next c1.at then get_corner c2.prev else get_corner c2.next in
+  if is_connected o1 o2 (* this means this is a rectangular *)
+  then (
+    Hashtbl.remove cm c1.at;
+    Hashtbl.remove cm c2.at;
+    Hashtbl.remove cm o1.at;
+    Hashtbl.remove cm o2.at;
+    let height = calc_height c1.at c2.at in
+    let width = calc_width c1.at o1.at in
+    width * height)
+  else if let inset = get_inset cm c1 c2 o1 o2 in
+          Hashtbl.length inset = 2
+  then ( 
+    (* TODO: Need to make helper functions for finding top, right, bottom, left values. Might make helper function for same x axis and same y axis as well. *)
+    (* TODO: Call pull all values from the Hashtble and then organize top with top and bottom with bottom and remap everything *)
+   1   
+  )
+  else (
+    printf
+      "\n\n\
+       c1: (%d, %d); prev: (%d, %d); next: (%d, %d)\n\
+       c2: (%d, %d); prev: (%d, %d); next: (%d, %d)\n"
+      (fst c1.at)
+      (snd c1.at)
+      (fst c1.prev)
+      (snd c1.prev)
+      (fst c1.next)
+      (snd c1.next)
+      (fst c2.at)
+      (snd c2.at)
+      (fst c2.prev)
+      (snd c2.prev)
+      (fst c2.next)
+      (snd c2.next);
+    0)
+;;
+
+let cm = corners_of_instructions input
+let out_2 = counting_corners cm
 let () = Stdlib.print_newline ()
 let () = Stdlib.print_newline ()
 let () = List.iter trench_string ~f:Stdlib.print_endline
 let () = Stdlib.print_newline ()
-(* let out = Stdio.Out_channel.create "trenches.txt" *)
-(* let () = Stdio.Out_channel.output_lines out trench_string *)
-(* let () = Stdio.Out_channel.close out *)
-let () = Stdlib.print_newline ()
-(* let () = print_corner_map cm *)
-(* let () = Stdlib.print_newline () *)
-let () = Stdlib.print_newline ()
+let () = printf "%d\n" out_2
 
 (* Part 1 *)
 let part_one () =
