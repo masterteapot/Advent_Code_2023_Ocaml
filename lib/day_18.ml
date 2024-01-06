@@ -16,21 +16,28 @@ type level =
   | NotTrench
   | Unknown
 
-type instructions =
+type instruction =
   { dir : direction
   ; count : int
   ; color_code : string
   ; c : string
   }
 
-let move loc dir =
+type corner =
+  { at : int * int
+  ; mutable next : int * int
+  ; mutable prev : int * int
+  ; in_corner : bool
+  }
+
+let move ~loc ~dir ~num =
   let x = fst loc in
   let y = snd loc in
   match dir with
-  | N -> x, Int.pred y
-  | E -> Int.succ x, y
-  | W -> Int.pred x, y
-  | S -> x, Int.succ y
+  | N -> x, y - num
+  | E -> x + num, y
+  | W -> x - num, y
+  | S -> x, y + num
 ;;
 
 let map_instructions i =
@@ -76,19 +83,6 @@ let map_instructions i =
   }
 ;;
 
-let print_instructions i =
-  printf
-    "{ dir: %s; count: %d; color_code: %s; c: %s }\n"
-    (match i.dir with
-     | N -> "N"
-     | W -> "W"
-     | S -> "S"
-     | E -> "E")
-    i.count
-    i.color_code
-    i.c
-;;
-
 let print_hash_grounds ~key:(x, y) ~data:g =
   let g =
     match g with
@@ -110,7 +104,7 @@ let trench_walker acc i =
     if count = 0
     then acc
     else (
-      let new_loc = move loc dir in
+      let new_loc = move ~loc ~dir ~num:1 in
       aux new_loc dir (Int.pred count) (new_loc :: acc))
   in
   aux cur i.dir i.count acc
@@ -120,6 +114,34 @@ let get_option x =
   match x with
   | Some x -> x
   | None -> failwith "Missing option"
+;;
+
+let corners_of_instructions (ls : instruction list) =
+  let cm =
+    Base.Hashtbl.create
+      ~growth_allowed:false
+      ~size:(List.length ls)
+      (module struct
+        type t = int * int [@@deriving sexp, compare, hash]
+      end)
+  in
+  let start = 0, 0 in
+  let rec aux loc acc = function
+    | [] ->
+      Hashtbl.update cm start ~f:(fun x ->
+        match x with
+        | Some x -> { x with prev = List.hd_exn acc }
+        | None -> failwith "Couldn't find starting corner")
+    | hd :: tl ->
+      let new_loc = move ~loc ~dir:hd.dir ~num:hd.count in
+      Hashtbl.set
+        cm
+        ~key:loc
+        ~data:{ at = loc; next = new_loc; prev = List.hd_exn acc; in_corner = false };
+      aux new_loc (loc :: acc) tl
+  in
+  aux (0, 0) [ 0, 0 ] ls;
+  cm
 ;;
 
 let make_grounds trenches =
@@ -179,10 +201,10 @@ let am_i_trench ~hg =
        | Some Trench -> Unknown, acc
        | Some InTrench -> InTrench, acc
        | Some Unknown ->
-         let level, acc = get_accs acc_lvl (loc :: acc) (move loc N) in
-         let level, acc = get_accs level acc (move loc E) in
-         let level, acc = get_accs level acc (move loc S) in
-         let level, acc = get_accs level acc (move loc W) in
+         let level, acc = get_accs acc_lvl (loc :: acc) (move ~loc ~dir:N ~num:1) in
+         let level, acc = get_accs level acc (move ~loc ~dir:E ~num:1) in
+         let level, acc = get_accs level acc (move ~loc ~dir:S ~num:1) in
+         let level, acc = get_accs level acc (move ~loc ~dir:W ~num:1) in
          if Stdlib.( = ) level Unknown then InTrench, acc else level, acc)
   in
   let aux loc =
@@ -234,13 +256,14 @@ let list_of_grounds h =
 ;;
 
 let input =
-  read_lines "inputs/18.txt" |> remove_empty_string |> List.map ~f:map_instructions
+  read_lines "inputs/18_t2.txt" |> remove_empty_string |> List.map ~f:map_instructions
 ;;
 
+let cm = corners_of_instructions input
 let trenches = List.fold_left input ~init:[ 0, 0 ] ~f:trench_walker
 let grounds = make_grounds trenches
 
-let h =
+let hg =
   Base.Hashtbl.create_mapped
     (module struct
       type t = int * int [@@deriving sexp, compare, hash]
@@ -250,15 +273,15 @@ let h =
     grounds
 ;;
 
-let h =
-  match h with
+let hg =
+  match hg with
   | `Ok x -> x
   | _ -> failwith "why duplicates?"
 ;;
 
-let () = update_grounds ~hash_grounds:h ~new_grounds:trenches ~level:Trench
-let () = am_i_trench ~hg:h
-let ls_of_hg = list_of_grounds h
+let () = update_grounds ~hash_grounds:hg ~new_grounds:trenches ~level:Trench
+let () = am_i_trench ~hg
+let ls_of_hg = list_of_grounds hg
 
 let trench_string =
   List.map ls_of_hg ~f:(fun x ->
@@ -272,18 +295,36 @@ let trench_string =
       | _ -> acc ^ "U "))
 ;;
 
+let print_corner_map cm =
+  Hashtbl.iteri cm ~f:(fun ~key ~data ->
+    Stdlib.print_newline ();
+    printf
+      "{at: %d, %d; prev: %d, %d; next: %d, %d}"
+      (fst key)
+      (snd key)
+      (fst data.prev)
+      (snd data.prev)
+      (fst data.next)
+      (snd data.next);
+    Stdlib.print_newline ())
+;;
 
 (* New instructions have impossibly large numbers, I think the trick here is to find jumps based on numbers rather than mapping out continuous spacing *)
-(* let () = List.iter trench_string ~f:Stdlib.print_endline *)
+let () = Stdlib.print_newline ()
+let () = Stdlib.print_newline ()
+let () = List.iter trench_string ~f:Stdlib.print_endline
 let () = Stdlib.print_newline ()
 let out = Stdio.Out_channel.create "trenches.txt"
 let () = Stdio.Out_channel.output_lines out trench_string
 let () = Stdio.Out_channel.close out
 let () = Stdlib.print_newline ()
+(* let () = print_corner_map cm *)
+(* let () = Stdlib.print_newline () *)
+let () = Stdlib.print_newline ()
 
 (* Part 1 *)
 let part_one () =
-  let out_1 = count_trenches ~hash_grounds:h in
+  let out_1 = count_trenches ~hash_grounds:hg in
   printf "Day 18 Part 1 --> %d\n" out_1
 ;;
 
