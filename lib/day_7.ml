@@ -147,6 +147,7 @@ let score_v2 =
   List.fold_lefti (fun acc i hand -> acc + ((i + 1) * hand.bet)) 0 sorted_hands_v2
 ;;
 
+
 let main () =
   let out_1 = score in
   let out_2 = score_v2 in

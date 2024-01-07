@@ -27,6 +27,17 @@ type corner =
   ; prev : int * int
   }
 
+let print_corner c =
+  printf
+    "at: (%d, %d); prev: (%d, %d); next: (%d, %d)\n"
+    (fst c.at)
+    (snd c.at)
+    (fst c.prev)
+    (snd c.prev)
+    (fst c.next)
+    (snd c.next)
+;;
+
 let move ~loc ~dir ~num =
   let x = fst loc in
   let y = snd loc in
@@ -286,12 +297,6 @@ let trench_string =
       | _ -> acc ^ "U "))
 ;;
 
-let loc_comp x y = fst x = fst y && snd x = snd y
-
-let is_connected x y =
-  if loc_comp x.next y.at || loc_comp x.prev y.at then true else false
-;;
-
 let get_inset cm x y a b =
   let top = if snd x.at > snd y.at then x.at else y.at in
   let bottom = if snd x.at < snd y.at then x.at else y.at in
@@ -302,15 +307,104 @@ let get_inset cm x y a b =
 
 let calc_height x y = abs (snd x - snd y) + 1
 let calc_width x y = abs (fst x - fst y) + 1
+let same_x_plane x y = fst x = fst y
+let same_y_plane x y = snd x = snd y
+let loc_comp x y = fst x = fst y && snd x = snd y
+
+let is_connected x y =
+  if loc_comp x.next y.at || loc_comp x.prev y.at then true else false
+;;
+
+let is_left x y = same_y_plane x y && fst x < fst y
+let is_right x y = same_y_plane x y && fst x > fst y
+let is_above x y = same_x_plane x y && snd x < snd y
+let is_below x y = same_x_plane x y && snd x > snd y
+
+(** returns true for x and y if x.at is the same as y.next *)
+let is_next x y = loc_comp x.at y.next
+
+(** returns true for x and y if x.at is the same as y.prev *)
+let is_prev x y = loc_comp x.at y.prev
+
+(** for corners x and y, returns the location of the node that y is connected to other than x *)
+let get_following_node x y =
+  if not (is_connected x y)
+  then failwith "these nodes are not connected"
+  else if loc_comp x.at y.next
+  then y.prev
+  else y.next
+;;
+
+(** for corners x and y, checks the next node connected to y, and returns its [direction] *)
+let following_direction x y =
+  let nn = get_following_node x y in
+  match same_x_plane y.at nn with
+  | true -> if is_above nn y.at then N else S
+  | false -> if is_left nn y.at then W else E
+;;
+
+let sort_locs x y =
+  if fst x > fst y
+  then 1
+  else if fst x = fst y && snd x > snd y
+  then 1
+  else if fst x = fst y && snd x = snd y
+  then 0
+  else -1
+;;
 
 let counting_corners cm =
+  let update_connection c1 c2 =
+    if (not (same_x_plane c1.at c2.at)) && not (same_y_plane c1.at c2.at)
+    then failwith "These nodes cannot be connected";
+    match same_x_plane c1.at c2.at with
+    | true ->
+      let new_c1 =
+        if snd c1.next <> snd c1.at
+        then { c1 with next = c2.at }
+        else { c1 with prev = c2.at }
+      in
+      let new_c2 =
+        if snd c2.next <> snd c2.at
+        then { c2 with next = c1.at }
+        else { c2 with prev = c1.at }
+      in
+      new_c1, new_c2
+    | false ->
+      let new_c1 =
+        if fst c1.next <> fst c1.at
+        then { c1 with next = c2.at }
+        else { c1 with prev = c2.at }
+      in
+      let new_c2 =
+        if fst c2.next <> fst c2.at
+        then { c2 with next = c1.at }
+        else { c2 with prev = c1.at }
+      in
+      new_c1, new_c2
+  in
+  let rec connect_edges = function
+    | [] -> ()
+    | hd :: md :: tl ->
+      let new_hd, new_md = update_connection hd md in
+      Hashtbl.set cm ~key:new_hd.at ~data:new_hd;
+      Hashtbl.set cm ~key:new_md.at ~data:new_md;
+      connect_edges tl
+    | hd :: _ -> failwith "We shouldn't have an odd number of corners"
+  in
+  let calc_size loc1 loc2 = calc_width loc1 loc2 * calc_height loc1 loc2 in
+  let remove_box c1 c2 c3 c4 =
+    Hashtbl.remove cm c1.at;
+    Hashtbl.remove cm c2.at;
+    Hashtbl.remove cm c3.at;
+    Hashtbl.remove cm c4.at;
+    let height = calc_height c1.at c2.at in
+    let width = calc_width c1.at c3.at in
+    width * height
+  in
   let get_corner c = Hashtbl.find cm c |> get_option in
   let c1 =
-    Hashtbl.keys cm
-    |> List.min_elt ~compare:(fun x y ->
-      if fst x > fst y then 1 else if fst x = fst y then 0 else -1)
-    |> get_option
-    |> get_corner
+    Hashtbl.keys cm |> List.min_elt ~compare:sort_locs |> get_option |> get_corner
   in
   let c2 =
     match c1 with
@@ -320,40 +414,38 @@ let counting_corners cm =
   in
   let o1 = if loc_comp c1.next c2.at then get_corner c1.prev else get_corner c1.next in
   let o2 = if loc_comp c2.next c1.at then get_corner c2.prev else get_corner c2.next in
-  if is_connected o1 o2 (* this means this is a rectangular *)
+  let insets =
+    get_inset cm c1 c2 o1 o2
+    |> Hashtbl.data
+    |> List.sort ~compare:(fun x y -> sort_locs x.at y.at)
+  in
+  let insets_filtered =
+    match List.hd insets with
+    | Some x -> List.filter insets ~f:(fun y -> same_x_plane x.at y.at)
+    | None -> []
+  in
+  (* Case 1 is that the shape is a rectangle *)
+  if is_connected o1 o2
+  then
+    remove_box c1 c2 o1 o2
+    (* Case 2 is that there is one or more inset nodes before we get to x or y next node *)
+  else if List.length insets_filtered >= 2
   then (
+    let new_x = fst (List.hd insets_filtered |> get_option).at in
+    let new_c1 = { c1 with at = new_x, snd c1.at } in
+    let new_c2 = { c2 with at = new_x, snd c2.at } in
+    let new_o1 = update_connection new_c1 o1 |> snd in
+    let new_o2 = update_connection new_c2 o2 |> snd in
+    let new_edge = (new_c1 :: insets_filtered) @ [ new_c2 ] in
+    connect_edges new_edge;
     Hashtbl.remove cm c1.at;
     Hashtbl.remove cm c2.at;
-    Hashtbl.remove cm o1.at;
-    Hashtbl.remove cm o2.at;
-    let height = calc_height c1.at c2.at in
-    let width = calc_width c1.at o1.at in
-    width * height)
-  else if let inset = get_inset cm c1 c2 o1 o2 in
-          Hashtbl.length inset = 2
-  then ( 
-    (* TODO: Need to make helper functions for finding top, right, bottom, left values. Might make helper function for same x axis and same y axis as well. *)
-    (* TODO: Call pull all values from the Hashtble and then organize top with top and bottom with bottom and remap everything *)
-   1   
-  )
-  else (
-    printf
-      "\n\n\
-       c1: (%d, %d); prev: (%d, %d); next: (%d, %d)\n\
-       c2: (%d, %d); prev: (%d, %d); next: (%d, %d)\n"
-      (fst c1.at)
-      (snd c1.at)
-      (fst c1.prev)
-      (snd c1.prev)
-      (fst c1.next)
-      (snd c1.next)
-      (fst c2.at)
-      (snd c2.at)
-      (fst c2.prev)
-      (snd c2.prev)
-      (fst c2.next)
-      (snd c2.next);
-    0)
+    Hashtbl.set cm ~key:o1.at ~data:new_o1;
+    Hashtbl.set cm ~key:o2.at ~data:new_o2;
+    Stdlib.print_newline ();
+    Hashtbl.iter cm ~f:print_corner;
+    calc_size c1.at new_c2.at)
+  else 0
 ;;
 
 let cm = corners_of_instructions input

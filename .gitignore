@@ -8,6 +8,9 @@
 *.cmxs
 *.cmxa
 
+# index lib
+!lib/
+
 # ocamlbuild working directory
 _build/
 inputs/
