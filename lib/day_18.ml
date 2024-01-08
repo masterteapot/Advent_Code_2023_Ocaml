@@ -261,7 +261,7 @@ let list_of_grounds h =
 ;;
 
 let input =
-  read_lines "inputs/18_m2.txt" |> remove_empty_string |> List.map ~f:map_instructions
+  read_lines "inputs/18_m4.txt" |> remove_empty_string |> List.map ~f:map_instructions
 ;;
 
 let trenches = List.fold_left input ~init:[ 0, 0 ] ~f:trench_walker
@@ -275,10 +275,7 @@ let hg =
     ~get_key:(fun x -> x)
     ~get_data:(fun _ -> Unknown)
     grounds
-;;
-
-let hg =
-  match hg with
+  |> function
   | `Ok x -> x
   | _ -> failwith "why duplicates?"
 ;;
@@ -297,52 +294,6 @@ let trench_string =
       | _ -> acc ^ "U "))
 ;;
 
-let get_inset cm x y a b =
-  let top = if snd x.at > snd y.at then x.at else y.at in
-  let bottom = if snd x.at < snd y.at then x.at else y.at in
-  let shortest = if fst a.at < fst b.at then a.at else b.at in
-  Hashtbl.filter_keys cm ~f:(fun x ->
-    snd x > snd bottom && snd x < snd top && fst x < fst shortest)
-;;
-
-let calc_height x y = abs (snd x - snd y) + 1
-let calc_width x y = abs (fst x - fst y) + 1
-let same_x_plane x y = fst x = fst y
-let same_y_plane x y = snd x = snd y
-let loc_comp x y = fst x = fst y && snd x = snd y
-
-let is_connected x y =
-  if loc_comp x.next y.at || loc_comp x.prev y.at then true else false
-;;
-
-let is_left x y = same_y_plane x y && fst x < fst y
-let is_right x y = same_y_plane x y && fst x > fst y
-let is_above x y = same_x_plane x y && snd x < snd y
-let is_below x y = same_x_plane x y && snd x > snd y
-
-(** returns true for x and y if x.at is the same as y.next *)
-let is_next x y = loc_comp x.at y.next
-
-(** returns true for x and y if x.at is the same as y.prev *)
-let is_prev x y = loc_comp x.at y.prev
-
-(** for corners x and y, returns the location of the node that y is connected to other than x *)
-let get_following_node x y =
-  if not (is_connected x y)
-  then failwith "these nodes are not connected"
-  else if loc_comp x.at y.next
-  then y.prev
-  else y.next
-;;
-
-(** for corners x and y, checks the next node connected to y, and returns its [direction] *)
-let following_direction x y =
-  let nn = get_following_node x y in
-  match same_x_plane y.at nn with
-  | true -> if is_above nn y.at then N else S
-  | false -> if is_left nn y.at then W else E
-;;
-
 let sort_locs x y =
   if fst x > fst y
   then 1
@@ -353,99 +304,43 @@ let sort_locs x y =
   else -1
 ;;
 
+let sort_locs_by_height x y = if snd x > snd y then 1 else if snd x = snd y then 0 else -1
+
 let counting_corners cm =
-  let update_connection c1 c2 =
-    if (not (same_x_plane c1.at c2.at)) && not (same_y_plane c1.at c2.at)
-    then failwith "These nodes cannot be connected";
-    match same_x_plane c1.at c2.at with
-    | true ->
-      let new_c1 =
-        if snd c1.next <> snd c1.at
-        then { c1 with next = c2.at }
-        else { c1 with prev = c2.at }
-      in
-      let new_c2 =
-        if snd c2.next <> snd c2.at
-        then { c2 with next = c1.at }
-        else { c2 with prev = c1.at }
-      in
-      new_c1, new_c2
-    | false ->
-      let new_c1 =
-        if fst c1.next <> fst c1.at
-        then { c1 with next = c2.at }
-        else { c1 with prev = c2.at }
-      in
-      let new_c2 =
-        if fst c2.next <> fst c2.at
-        then { c2 with next = c1.at }
-        else { c2 with prev = c1.at }
-      in
-      new_c1, new_c2
+  let get_active_corners x =
+    Hashtbl.filter cm ~f:(fun c -> fst c.at <= x && (fst c.next >= x || fst c.prev >= x))
+    |> Hashtbl.data
+    |> List.sort ~compare:(fun x y -> sort_locs_by_height x.at y.at)
   in
-  let rec connect_edges = function
-    | [] -> ()
-    | hd :: md :: tl ->
-      let new_hd, new_md = update_connection hd md in
-      Hashtbl.set cm ~key:new_hd.at ~data:new_hd;
-      Hashtbl.set cm ~key:new_md.at ~data:new_md;
-      connect_edges tl
-    | hd :: _ -> failwith "We shouldn't have an odd number of corners"
+  let rec calc_height is_trench height ls =
+    match ls with
+    | [] -> height
+    | hd :: md :: tl when is_trench ->
+      let new_height = abs (snd hd.at - snd md.at) + 1 in
+      calc_height false (height + new_height) (md :: tl)
+    | _ :: md :: tl -> calc_height true height (md :: tl)
+    | _ -> height
   in
-  let calc_size loc1 loc2 = calc_width loc1 loc2 * calc_height loc1 loc2 in
-  let remove_box c1 c2 c3 c4 =
-    Hashtbl.remove cm c1.at;
-    Hashtbl.remove cm c2.at;
-    Hashtbl.remove cm c3.at;
-    Hashtbl.remove cm c4.at;
-    let height = calc_height c1.at c2.at in
-    let width = calc_width c1.at c3.at in
+  let calc_size last_x cur_x =
+    let width = abs (cur_x - last_x) in
+    let height = calc_height true 0 (get_active_corners last_x) in
+    Stdlib.print_newline ();
+    printf "W: %d; H: %d; Area: %d\n" width height (width * height);
     width * height
   in
-  let get_corner c = Hashtbl.find cm c |> get_option in
-  let c1 =
-    Hashtbl.keys cm |> List.min_elt ~compare:sort_locs |> get_option |> get_corner
+  let sorted_corners =
+    List.sort (Hashtbl.data cm) ~compare:(fun x y -> sort_locs x.at y.at)
   in
-  let c2 =
-    match c1 with
-    | x when fst x.next = fst x.at -> get_corner x.next
-    | x when fst x.prev = fst x.at -> get_corner x.prev
-    | _ -> failwith "we couldn't find a matching corner for the far left x"
+  let rec aux last_x cur_x acc size sc =
+    match sc with
+    | [] -> calc_size last_x cur_x + size
+    | hd :: tl when fst hd.at = cur_x -> aux last_x cur_x (hd :: acc) size tl
+    | hd :: tl when fst hd.at > cur_x ->
+      aux cur_x (fst hd.at) [ hd ] (calc_size last_x cur_x + size) tl
+    | _ -> failwith "somehow we are not in left to right order"
   in
-  let o1 = if loc_comp c1.next c2.at then get_corner c1.prev else get_corner c1.next in
-  let o2 = if loc_comp c2.next c1.at then get_corner c2.prev else get_corner c2.next in
-  let insets =
-    get_inset cm c1 c2 o1 o2
-    |> Hashtbl.data
-    |> List.sort ~compare:(fun x y -> sort_locs x.at y.at)
-  in
-  let insets_filtered =
-    match List.hd insets with
-    | Some x -> List.filter insets ~f:(fun y -> same_x_plane x.at y.at)
-    | None -> []
-  in
-  (* Case 1 is that the shape is a rectangle *)
-  if is_connected o1 o2
-  then
-    remove_box c1 c2 o1 o2
-    (* Case 2 is that there is one or more inset nodes before we get to x or y next node *)
-  else if List.length insets_filtered >= 2
-  then (
-    let new_x = fst (List.hd insets_filtered |> get_option).at in
-    let new_c1 = { c1 with at = new_x, snd c1.at } in
-    let new_c2 = { c2 with at = new_x, snd c2.at } in
-    let new_o1 = update_connection new_c1 o1 |> snd in
-    let new_o2 = update_connection new_c2 o2 |> snd in
-    let new_edge = (new_c1 :: insets_filtered) @ [ new_c2 ] in
-    connect_edges new_edge;
-    Hashtbl.remove cm c1.at;
-    Hashtbl.remove cm c2.at;
-    Hashtbl.set cm ~key:o1.at ~data:new_o1;
-    Hashtbl.set cm ~key:o2.at ~data:new_o2;
-    Stdlib.print_newline ();
-    Hashtbl.iter cm ~f:print_corner;
-    calc_size c1.at new_c2.at)
-  else 0
+  let min_x = fst (List.hd_exn sorted_corners).at in
+  aux min_x min_x [] (calc_height true 0 (get_active_corners min_x)) sorted_corners
 ;;
 
 let cm = corners_of_instructions input
