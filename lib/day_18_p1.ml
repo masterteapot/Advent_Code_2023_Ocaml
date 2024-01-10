@@ -291,12 +291,13 @@ let create_trench_string gl =
       | _ -> acc ^ "U "))
 ;;
 
+
 (* Part 1 *)
-let part_one () =
-  let input =
-    read_lines "inputs/18_t.txt" |> remove_empty_string |> List.map ~f:map_instructions
+let part_one input =
+  let instructions =
+    read_lines input |> remove_empty_string |> List.map ~f:map_instructions
   in
-  let trenches = List.fold_left input ~init:[ 0, 0 ] ~f:trench_walker in
+  let trenches = List.fold_left instructions ~init:[ 0, 0 ] ~f:trench_walker in
   let grounds = make_grounds trenches in
   let hg = create_hash_grounds grounds in
   let () = update_grounds ~hash_grounds:hg ~new_grounds:trenches ~level:Trench in
@@ -307,15 +308,4 @@ let part_one () =
   Stdlib.print_newline ();
   let out_1 = count_trenches ~hash_grounds:hg in
   printf "Day 18 Part 1 --> %d\n" out_1
-;;
-
-(* Part 2 *)
-let part_two () =
-  let out_2 = 2 in
-  printf "Day 18 Part 2 --> %d\n" out_2
-;;
-
-let main () =
-  part_one ();
-  part_two ()
 ;;

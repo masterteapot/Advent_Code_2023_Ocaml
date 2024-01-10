@@ -42,7 +42,7 @@ let get_angle at next prev =
   let hc = if snd at = snd next then next else prev in
   let vc = if fst at = fst next then next else prev in
   let hd = if fst hc > fst at then E else W in
-  let vd = if snd vc > snd at then N else S in
+  let vd = if snd vc > snd at then S else N in
   match vd, hd with
   | N, W -> BR
   | S, W -> TR
@@ -126,6 +126,10 @@ let corners_of_instructions (ls : instruction list) =
       aux new_loc (loc :: acc) tl
   in
   aux (0, 0) [ 0, 0 ] ls;
+  Base.Hashtbl.update cm (0, 0) ~f:(fun x ->
+    let x = get_option x in
+    let new_angle = get_angle x.at x.next x.prev in
+    { x with angle = new_angle });
   cm
 ;;
 
@@ -142,11 +146,18 @@ let sort_locs x y =
 let equal_corner c1 c2 = fst c1 = fst c2 && snd c1 = snd c2
 let sort_locs_by_height x y = if snd x > snd y then 1 else if snd x = snd y then 0 else -1
 
+let string_of_corner_angle c =
+  match c.angle with
+  | BR -> "BR"
+  | TR -> "TR"
+  | BL -> "BL"
+  | TL -> "TL"
+;;
+
 let counting_corners cm =
   let get_active_corners x =
-    Hashtbl.filter cm ~f:(fun c -> 
-        fst c.at = x
-    || (fst c.at < x && (fst c.next > x || fst c.prev > x)))
+    Hashtbl.filter cm ~f:(fun c ->
+      fst c.at = x || (fst c.at < x && (fst c.next > x || fst c.prev > x)))
     |> Hashtbl.data
     |> List.sort ~compare:(fun x y -> sort_locs_by_height x.at y.at)
   in
@@ -156,14 +167,15 @@ let counting_corners cm =
     | _ -> false
   in
   let rec calc_height x_val was_trench height ls =
-      Stdlib.print_newline ();
-      List.iter ls ~f:(fun x -> printf " (%d, %d); " (fst x.at) (snd x.at));
+    Stdlib.print_newline ();
+    List.iter ls ~f:(fun x ->
+      printf " (%d, %d) [%s]; " (fst x.at) (snd x.at) (string_of_corner_angle x));
     printf "\n%d -> " height;
     match ls with
     | [] -> height
     | hd :: md :: tl when was_trench && is_closed_corner hd.angle && fst hd.at = x_val ->
       let new_height = abs (snd hd.at - snd md.at) in
-      printf "%d" @@ new_height + height;
+      printf "%d" @@ (new_height + height);
       printf " via %d\n" 1;
       calc_height x_val true (height + new_height) (md :: tl)
     | hd :: md :: tl when is_closed_corner hd.angle && fst hd.at = x_val ->
@@ -176,16 +188,16 @@ let counting_corners cm =
       calc_height x_val false height (md :: tl)
     | hd :: md :: tl ->
       let new_height = abs (snd hd.at - snd md.at) + 1 in
-      printf "%d" @@ height + new_height;
+      printf "%d" @@ (height + new_height);
       printf " via %d\n" 4;
       calc_height x_val true (height + new_height) (md :: tl)
     | _ -> height
   in
-  let calc_size last_x cur_x =
-    let width = abs (cur_x - last_x) in
+  let calc_size last_x cur_x last =
+    let width = if last then abs (cur_x - last_x) + 1 else abs (cur_x - last_x) in
     let height = calc_height last_x false 0 (get_active_corners last_x) in
     Stdlib.print_newline ();
-    printf "\n\nW: %d; H: %d; Area: %d\n" width height (width * height);
+    printf "\n-- W: %d; H: %d; Area: %d --\n" width height (width * height);
     width * height
   in
   let sorted_corners =
@@ -194,29 +206,30 @@ let counting_corners cm =
   let rec aux last_x cur_x acc size sc =
     Stdlib.print_newline ();
     match sc with
-    | [] -> calc_size last_x cur_x + size
+    | [] -> calc_size last_x cur_x true + size
     | hd :: tl when fst hd.at = cur_x -> aux last_x cur_x (hd :: acc) size tl
     | hd :: tl when fst hd.at > cur_x ->
-      aux cur_x (fst hd.at) [ hd ] (calc_size last_x cur_x + size) tl
+      aux cur_x (fst hd.at) [ hd ] (calc_size last_x cur_x false + size) tl
     | _ -> failwith "somehow we are not in left to right order"
   in
   let min_x = fst (List.hd_exn sorted_corners).at in
-  aux min_x min_x [] (calc_height min_x false 0 (get_active_corners min_x)) sorted_corners
+  aux min_x min_x [] 0 sorted_corners
 ;;
 
-let input =
-  read_lines "inputs/18_t.txt" |> remove_empty_string |> List.map ~f:map_instructions
-;;
-
+let input = "inputs/18_m3.txt"
+let instructions = read_lines input |> remove_empty_string |> List.map ~f:map_instructions
 let () = Stdlib.print_newline ()
-let cm = corners_of_instructions input
+let cm = corners_of_instructions instructions
 let out_2 = counting_corners cm
 let () = Stdlib.print_newline ()
 let () = Stdlib.print_newline ()
 let () = printf "%d\n" out_2
 
 (* Part 1 *)
-let part_one () = Day_18_p1.part_one ()
+let part_one () =
+  let open Day_18_p1 in
+  part_one input
+;;
 
 (* Part 2 *)
 let part_two () =
