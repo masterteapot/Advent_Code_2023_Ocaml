@@ -145,6 +145,7 @@ let sort_locs x y =
 
 let equal_corner c1 c2 = fst c1 = fst c2 && snd c1 = snd c2
 let sort_locs_by_height x y = if snd x > snd y then 1 else if snd x = snd y then 0 else -1
+let is_connected_corners c1 c2 = equal_corner c1.next c2.at || equal_corner c1.prev c2.at
 
 let string_of_corner_angle c =
   match c.angle with
@@ -166,57 +167,87 @@ let counting_corners cm =
     | TR -> true
     | _ -> false
   in
-  let rec calc_height x_val was_trench height ls =
+  let rec calc_height x_val was_trench height height_loss ls =
     Stdlib.print_newline ();
     List.iter ls ~f:(fun x ->
       printf " (%d, %d) [%s]; " (fst x.at) (snd x.at) (string_of_corner_angle x));
     printf "\n%d -> " height;
     match ls with
-    | [] -> height
+    | [] -> height, height_loss
     | hd :: md :: tl when was_trench && is_closed_corner hd.angle && fst hd.at = x_val ->
       let new_height = abs (snd hd.at - snd md.at) in
       printf "%d" @@ (new_height + height);
-      printf " via %d\n" 1;
-      calc_height x_val true (height + new_height) (md :: tl)
+      printf " via %d; height_loss: %d\n" 1 height_loss;
+      calc_height x_val true (height + new_height) height_loss (md :: tl)
     | hd :: md :: tl when is_closed_corner hd.angle && fst hd.at = x_val ->
       printf "%d" height;
-      printf " via %d\n" 2;
-      calc_height x_val false height (md :: tl)
-    | _ :: md :: tl when was_trench ->
+      printf " via %d; height_loss: %d\n" 2 height_loss;
+      calc_height x_val false height (abs (snd hd.at - snd md.at) - 1 + height_loss) (md :: tl)
+    | [ hd; md ] when was_trench ->
       printf "%d" height;
-      printf " via %d\n" 3;
-      calc_height x_val false height (md :: tl)
+      printf " via %d; height_loss: %d\n" 3 height_loss;
+      calc_height x_val false height (abs (snd hd.at - snd md.at) + height_loss) [ md ]
+    | hd :: md :: tl when was_trench && is_connected_corners hd md ->
+      printf "%d" height;
+      printf " via %d; height_loss: %d\n" 4 height_loss;
+      calc_height
+        x_val
+        false
+        height
+        (abs (snd hd.at - snd md.at) + height_loss - 1)
+        (md :: tl)
+    | hd :: md :: tl when was_trench ->
+      printf "%d" height;
+      printf " via %d; height_loss: %d\n" 5 height_loss;
+      calc_height x_val false height height_loss (md :: tl)
     | hd :: md :: tl ->
       let new_height = abs (snd hd.at - snd md.at) + 1 in
       printf "%d" @@ (height + new_height);
-      printf " via %d\n" 4;
-      calc_height x_val true (height + new_height) (md :: tl)
-    | _ -> height
-  in
-  let calc_size last_x cur_x last =
-    let width = if last then abs (cur_x - last_x) + 1 else abs (cur_x - last_x) in
-    let height = calc_height last_x false 0 (get_active_corners last_x) in
-    Stdlib.print_newline ();
-    printf "\n-- W: %d; H: %d; Area: %d --\n" width height (width * height);
-    width * height
+      printf " via %d; height_loss: %d\n" 6 height_loss;
+      calc_height x_val true (height + new_height) height_loss (md :: tl)
+    | _ ->
+      printf "\n\n\nAt the end with HL: %d\n" height_loss;
+      height, height_loss
   in
   let sorted_corners =
     List.sort (Hashtbl.data cm) ~compare:(fun x y -> sort_locs x.at y.at)
   in
-  let rec aux last_x cur_x acc size sc =
+  let rec aux last_x cur_x acc last_height size sc =
     Stdlib.print_newline ();
     match sc with
-    | [] -> calc_size last_x cur_x true + size
-    | hd :: tl when fst hd.at = cur_x -> aux last_x cur_x (hd :: acc) size tl
+    | [] ->
+      let width = abs (cur_x - last_x) + 1 in
+      let height, height_difference =
+        calc_height last_x false 0 0 (get_active_corners last_x)
+      in
+      Stdlib.print_newline ();
+      printf
+        "\n-- W: %d; H: %d; Area: %d --\n"
+        width
+        height
+        ((width * height) + height_difference);
+      (width * height) + height_difference + size
+    | hd :: tl when fst hd.at = cur_x -> aux last_x cur_x (hd :: acc) last_height size tl
     | hd :: tl when fst hd.at > cur_x ->
-      aux cur_x (fst hd.at) [ hd ] (calc_size last_x cur_x false + size) tl
+      let width = abs (cur_x - last_x) in
+      let height, height_difference =
+        calc_height last_x false 0 0 (get_active_corners last_x)
+      in
+      Stdlib.print_newline ();
+      printf
+        "\n-- W: %d; H: %d; Area: %d --\n"
+        width
+        height
+        ((width * height) + height_difference);
+      let new_size = (width * height) + height_difference in
+      aux cur_x (fst hd.at) [ hd ] height (size + new_size) tl
     | _ -> failwith "somehow we are not in left to right order"
   in
   let min_x = fst (List.hd_exn sorted_corners).at in
-  aux min_x min_x [] 0 sorted_corners
+  aux min_x min_x [] 0 0 sorted_corners
 ;;
 
-let input = "inputs/18_m3.txt"
+let input = "inputs/18_t2.txt"
 let instructions = read_lines input |> remove_empty_string |> List.map ~f:map_instructions
 let () = Stdlib.print_newline ()
 let cm = corners_of_instructions instructions
@@ -233,7 +264,7 @@ let part_one () =
 
 (* Part 2 *)
 let part_two () =
-  let out_2 = 2 in
+  let out_2 = out_2 in
   printf "Day 18 Part 2 --> %d\n" out_2
 ;;
 
