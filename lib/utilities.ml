@@ -57,13 +57,27 @@ let print_aai ax =
   print_newline ()
 ;;
 
-(** Takes a list [int list char] and prints the list in a basic format*)
+(** Takes a list [list list char] and prints the list in a basic format*)
 let print_llc a_list =
   print_newline ();
   List.iter
     (fun x ->
       print_newline ();
       List.iter (fun y -> Printf.printf "%c, " y) x;
+      print_newline ())
+    a_list;
+  print_newline ()
+;;
+
+(** Takes a list [list list char] and prints the list in a basic format*)
+let print_llc_with_indices a_list =
+  print_string "  ";
+  a_list |> List.mapi (fun i _ -> Int.rem i 10) |> List.iter @@ Printf.printf "%d ";
+  print_newline ();
+  List.iteri
+    (fun i x ->
+      Printf.printf "%d " (Int.rem i 10);
+      List.iter (fun y -> Printf.printf "%c" y) x;
       print_newline ())
     a_list;
   print_newline ()

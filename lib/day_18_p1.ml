@@ -302,9 +302,9 @@ let part_one input =
   let hg = create_hash_grounds grounds in
   let () = update_grounds ~hash_grounds:hg ~new_grounds:trenches ~level:Trench in
   let () = am_i_trench ~hg in
-  let trench_string = hg |> list_of_grounds |> create_trench_string in
+  let trench_string = hg |> list_of_grounds |> create_trench_string |> List.map ~f:String.to_list in
   Stdlib.print_newline ();
-  List.iter trench_string ~f:Stdlib.print_endline;
+  print_llc_with_indices trench_string;
   Stdlib.print_newline ();
   let out_1 = count_trenches ~hash_grounds:hg in
   printf "Day 18 Part 1 --> %d\n" out_1

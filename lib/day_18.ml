@@ -174,22 +174,128 @@ let counting_corners cm =
     printf "\n%d -> " height;
     match ls with
     | [] -> height, height_loss
-    | hd :: md :: tl when was_trench && is_closed_corner hd.angle && fst hd.at = x_val ->
-      let new_height = abs (snd hd.at - snd md.at) in
-      printf "%d" @@ (new_height + height);
+    | [ hd; md ]
+    (* If you are at the last two connections, you are in trench and the top is not closed but the bottom is then you add to the missing height but not to height *)
+      when was_trench
+           && (not (is_closed_corner hd.angle))
+           && is_closed_corner md.angle
+           && is_connected_corners hd md
+           && fst hd.at = x_val
+           && fst md.at = x_val ->
+      let new_height_loss = abs (snd hd.at - snd md.at) + height_loss in
+      printf "%d" height;
       printf " via %d; height_loss: %d\n" 1 height_loss;
-      calc_height x_val true (height + new_height) height_loss (md :: tl)
-    | hd :: md :: tl when is_closed_corner hd.angle && fst hd.at = x_val ->
+      calc_height x_val false height new_height_loss [ md ]
+    | [ hd; md ]
+    (* if you are in trench and the first is closed and it is the last two elements and the second is open then add to height *)
+      when was_trench
+           && is_closed_corner hd.angle
+           && (not (is_closed_corner md.angle))
+           && is_connected_corners hd md
+           && fst hd.at = x_val
+           && fst md.at = x_val ->
+      let new_height = abs (snd hd.at - snd md.at) + height in
       printf "%d" height;
       printf " via %d; height_loss: %d\n" 2 height_loss;
-      calc_height x_val false height (abs (snd hd.at - snd md.at) - 1 + height_loss) (md :: tl)
-    | [ hd; md ] when was_trench ->
-      printf "%d" height;
+      calc_height x_val true new_height height_loss [ md ]
+    | hd :: md :: tl
+    (* When we have a double closing connected connection and we were in trench then we stay in trench *)
+      when was_trench
+           && is_closed_corner hd.angle
+           && is_closed_corner md.angle
+           && is_connected_corners hd md
+           && fst hd.at = x_val
+           && fst md.at = x_val ->
+      let new_height = abs (snd hd.at - snd md.at) - 1 + height in
+      printf "%d" new_height;
       printf " via %d; height_loss: %d\n" 3 height_loss;
-      calc_height x_val false height (abs (snd hd.at - snd md.at) + height_loss) [ md ]
+      calc_height x_val true new_height height_loss (md :: tl)
+    | hd :: md :: tl
+    (* When we have a double closing UNconnected connection and we were in trench then we stay in trench *)
+      when was_trench
+           && is_closed_corner hd.angle
+           && is_closed_corner md.angle
+           && (not @@ is_connected_corners hd md)
+           && fst hd.at = x_val
+           && fst md.at = x_val ->
+      let new_height = abs (snd hd.at - snd md.at) + height in
+      printf "%d" new_height;
+      printf " via %d; height_loss: %d\n" 4 height_loss;
+      calc_height x_val true new_height height_loss (md :: tl)
+    | hd :: md :: tl
+    (* When you are in trench and only the top is closed, and it is connected then you add to the height and stay in trench *)
+      when was_trench
+           && is_closed_corner hd.angle
+           && (not @@ is_closed_corner md.angle)
+           && is_connected_corners hd md
+           && fst hd.at = x_val
+           && fst md.at = x_val ->
+      let new_height = abs (snd hd.at - snd md.at) + height in
+      printf "%d" new_height;
+      printf " via %d; height_loss: %d\n" 5 height_loss;
+      calc_height x_val true new_height height_loss (md :: tl)
+    | hd :: md :: tl
+    (* When we are not in trench and have two closed corners on the same plane but they are not connected then you are not in trench and you do not add their height *)
+      when is_closed_corner hd.angle
+           && is_closed_corner md.angle
+           && (not @@ is_closed_corner md.angle)
+           && fst hd.at = x_val
+           && fst md.at = x_val ->
+      let new_height = height in
+      printf "%d" new_height;
+      printf " via %d; height_loss: %d\n" 6 height_loss;
+      calc_height x_val false new_height height_loss (md :: tl)
+    | hd :: md :: tl
+    (* When we are in trench and have only the top closed corner and you are not connected with the bottom, and it is not on the same x_axis then you are still in trench *)
+      when was_trench
+           && is_closed_corner hd.angle
+           && (not @@ is_closed_corner md.angle)
+           && (not (is_connected_corners hd md))
+           && fst hd.at = x_val
+           && snd md.at <> x_val ->
+      let new_height = abs (snd hd.at - snd md.at) + 1 + height in
+      printf "%d" new_height;
+      printf " via %d; height_loss: %d\n" 7 height_loss;
+      calc_height x_val true new_height height_loss (md :: tl)
+    | hd :: md :: tl
+    (*  When the top is closed and not connected to the bottom and it is not on the same x axis and you were not in trench then you stay out of trench
+    *)
+      when (not was_trench)
+           && is_closed_corner hd.angle
+           && fst hd.at = x_val
+           && snd md.at <> x_val
+           && not (is_connected_corners hd md) ->
+      let new_height = height in
+      printf "%d" new_height;
+      printf " via %d; height_loss: %d\n" 8 height_loss;
+      calc_height x_val false new_height height_loss (md :: tl)
+    | hd :: md :: tl
+    (* When you are connected and closed corners but not in trench then we add your height to the height loss and stay out of trench *)
+      when (not was_trench)
+           && is_closed_corner hd.angle
+           && is_closed_corner md.angle
+           && is_connected_corners hd md
+           && fst hd.at = x_val
+           && fst md.at = x_val ->
+      let new_height_loss = abs (snd hd.at - snd md.at) + 1 + height_loss in
+      printf "%d" height;
+      printf " via %d; height_loss: %d\n" 9 new_height_loss;
+      calc_height x_val false height new_height_loss (md :: tl)
+    | hd :: md :: tl
+    (* When you are not in trench and your top is a closed corner but the bottom isn't but they are connected then you are out of trench but you can add some to the lost height value *)
+      when (not was_trench)
+           && is_closed_corner hd.angle
+           && is_connected_corners hd md
+           && fst hd.at = x_val
+           && fst md.at = x_val ->
+      let new_height_loss = abs (snd hd.at - snd md.at) + height_loss in
+      printf "%d" height;
+      printf " via %d; height_loss: %d\n" 10 new_height_loss;
+      calc_height x_val false height new_height_loss (md :: tl)
+      (* if last two elements and first isn't closed but bottom is then add to missing height *)
     | hd :: md :: tl when was_trench && is_connected_corners hd md ->
       printf "%d" height;
-      printf " via %d; height_loss: %d\n" 4 height_loss;
+      printf " via %d; height_loss: %d\n" 11 height_loss;
       calc_height
         x_val
         false
@@ -198,13 +304,13 @@ let counting_corners cm =
         (md :: tl)
     | hd :: md :: tl when was_trench ->
       printf "%d" height;
-      printf " via %d; height_loss: %d\n" 5 height_loss;
+      printf " via %d; height_loss: %d\n" 12 height_loss;
       calc_height x_val false height height_loss (md :: tl)
     | hd :: md :: tl ->
-      let new_height = abs (snd hd.at - snd md.at) + 1 in
-      printf "%d" @@ (height + new_height);
-      printf " via %d; height_loss: %d\n" 6 height_loss;
-      calc_height x_val true (height + new_height) height_loss (md :: tl)
+      let new_height = abs (snd hd.at - snd md.at) + 1 + height in
+      printf "%d" new_height;
+      printf " via %d; height_loss: %d\n" 13 height_loss;
+      calc_height x_val true new_height height_loss (md :: tl)
     | _ ->
       printf "\n\n\nAt the end with HL: %d\n" height_loss;
       height, height_loss
