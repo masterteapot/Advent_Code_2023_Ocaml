@@ -302,7 +302,7 @@ let counting_corners cm =
         height
         (abs (snd hd.at - snd md.at) + height_loss - 1)
         (md :: tl)
-    | hd :: md :: tl when was_trench ->
+    | _ :: md :: tl when was_trench ->
       printf "%d" height;
       printf " via %d; height_loss: %d\n" 12 height_loss;
       calc_height x_val false height height_loss (md :: tl)
