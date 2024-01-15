@@ -26,11 +26,7 @@ type operation =
   { left : rating_cat
   ; operand : int -> int -> bool
   ; right : int
-  }
-
-type workflow =
-  { name : string
-  ; check : rating -> (string, rating) Base.Hashtbl.t -> rating
+  ; output : action
   }
 
 let parse_input ls =
@@ -43,18 +39,6 @@ let parse_input ls =
   in
   aux ls [] []
 ;;
-
-(* let wf = *)
-(*   Base.Hashtbl.create *)
-(*     ~growth_allowed:true *)
-(*     ~size:(List.length workflows_raw) *)
-(*     (module struct *)
-(*       type t = int * int [@@deriving sexp, compare, hash] *)
-(*     end) *)
-(* in *)
-
-let input = read_lines "inputs/19_t.txt"
-let workflows_raw, ratings_raw = parse_input input
 
 let is_num = function
   | '0' .. '9' -> true
@@ -78,9 +62,9 @@ let parse_keys = take_while1 is_str <* char '{' >>| fun x -> x
 let parse_operator =
   peek_char
   >>= function
-  | Some '>' -> advance 1 >>| fun () -> ">"
-  | Some '<' -> advance 1 >>| fun () -> "<"
-  | _ -> fail "Sign or digit expected"
+  | Some '>' -> advance 1 >>| fun () -> Stdlib.( > )
+  | Some '<' -> advance 1 >>| fun () -> Stdlib.( < )
+  | _ -> failwith "Sign or digit expected"
 ;;
 
 let is_rating = function
@@ -123,35 +107,124 @@ let parse_ratings =
   | s -> { x; m; a; s; accepted = false }
 ;;
 
+let parse_rating =
+  take_while1 is_rating
+  >>= fun r ->
+  peek_char
+  >>= fun n ->
+  (match n with
+   | Some '>' -> return r
+   | Some '<' -> return r
+   | _ -> fail "Hey this isn't a rating")
+  >>| function
+  | "a" -> Aerodynamic
+  | "m" -> Musical
+  | "s" -> Shiny
+  | "x" -> Extremely_Cool
+  | _ -> failwith "Not a real rating"
+;;
+
 let string_of_result = function
   | Accept -> "Accept"
   | Reject -> "Reject"
   | Next x -> x
 ;;
 
+let string_of_rating = function
+  | Aerodynamic -> "Aerodynamic"
+  | Musical -> "Musical"
+  | Shiny -> "Shiny"
+  | Extremely_Cool -> "Extremely Cool"
+;;
+
 let parse_operations =
-  take_while1 is_rating
-  >>= fun left_of_operation ->
+  parse_rating
+  >>= fun left ->
   parse_operator
-  >>= fun operator ->
+  >>= fun operand ->
   parse_int
-  >>= fun right_of_operation ->
+  >>= fun right ->
   parse_result
   >>| function
-  | result -> left_of_operation, operator, right_of_operation, result
+  | output -> Some { left; operand; right; output }
 ;;
 
 let parse_workflows =
   parse_keys
   >>= fun key ->
   parse_operations
+  <|> return None
+  >>= fun operation_1 ->
+  parse_operations
+  <|> return None
+  >>= fun operation_2 ->
+  parse_operations
+  <|> return None
+  >>= fun operation_3 ->
+  parse_operations
+  <|> return None
+  >>= fun operation_4 ->
+  parse_operations
+  <|> return None
+  >>= fun operation_5 ->
+  parse_end_result
   >>| function
-  | operation_1 ->
-    key
-    ^ " >>> "
-    ^
-      (match operation_1 with
-      | lo, o, ro, re -> lo ^ o ^ Stdlib.string_of_int ro ^ " -> " ^ string_of_result re)
+  | return_value ->
+    let r_fun r =
+      let get_r_value o =
+        match o with
+        | Shiny -> r.s
+        | Extremely_Cool -> r.x
+        | Aerodynamic -> r.a
+        | Musical -> r.m
+      in
+      let doctor o = o.operand (get_r_value o.left) o.right in
+      match operation_1, operation_2, operation_3, operation_4, operation_5 with
+      | Some a, Some b, Some c, Some d, Some e ->
+        if doctor a
+        then a.output
+        else if doctor b
+        then b.output
+        else if doctor c
+        then c.output
+        else if doctor d
+        then d.output
+        else if doctor e
+        then e.output
+        else return_value
+      | Some a, Some b, Some c, Some d, _ ->
+        if doctor a
+        then a.output
+        else if doctor b
+        then b.output
+        else if doctor c
+        then c.output
+        else if doctor d
+        then d.output
+        else return_value
+      | Some a, Some b, Some c, _, _ ->
+        if doctor a
+        then a.output
+        else if doctor b
+        then b.output
+        else if doctor c
+        then c.output
+        else return_value
+      | Some a, Some b, _, _, _ ->
+        if doctor a then a.output else if doctor b then b.output else return_value
+      | Some a, _, _, _, _ -> if doctor a then a.output else return_value
+      | _ -> failwith "Didn't expect this"
+    in
+    key, r_fun
+;;
+
+let rate_em wf r =
+  let rec aux r = function
+    | Accept -> { r with accepted = true }
+    | Reject -> { r with accepted = false }
+    | Next x -> aux r ((Hashtbl.find_exn wf x) r)
+  in
+  aux r (Next "in")
 ;;
 
 let get_results = function
@@ -164,39 +237,50 @@ let get_result_string = function
   | _ -> "fail"
 ;;
 
-let print_ratings r = printf "{x: %d; m: %d; a: %d; s: %d}\n" r.x r.m r.a r.s
-
-let ratings =
-  List.map ratings_raw ~f:(fun x ->
-    get_results @@ Angstrom.parse_string ~consume:All parse_ratings x)
+let print_ratings r =
+  printf "{x: %d; m: %d; a: %d; s: %d; accepted: %b}\n" r.x r.m r.a r.s r.accepted
 ;;
+
+let input = read_lines "inputs/19_t.txt"
+let workflows_raw, ratings_raw = parse_input input
 
 let workflows =
   List.map workflows_raw ~f:(fun x ->
-    get_result_string @@ Angstrom.parse_string ~consume:Prefix parse_workflows x)
+    get_results @@ Angstrom.parse_string ~consume:Prefix parse_workflows x)
 ;;
 
-let () = Stdlib.print_newline ()
-let () = List.iter workflows_raw ~f:Stdlib.print_endline
-let () = Stdlib.print_newline ()
-let () = List.iter ratings_raw ~f:Stdlib.print_endline
-let () = Stdlib.print_newline ()
-let () = List.iter ratings ~f:print_ratings
-let () = Stdlib.print_newline ()
-let () = Stdlib.print_newline ()
-let () = Stdlib.print_newline ()
-let () = List.iter workflows ~f:Stdlib.print_endline
+let wf = Hashtbl.create (module String)
+let () = List.iter workflows ~f:(fun x -> Hashtbl.set wf ~key:(fst x) ~data:(snd x))
 
 (* Part 1 *)
 let part_one () =
-  let out_1 = 1 in
+  let input = read_lines "inputs/19.txt" in
+  let workflows_raw, ratings_raw = parse_input input in
+  let ratings =
+    List.map ratings_raw ~f:(fun x ->
+      get_results @@ Angstrom.parse_string ~consume:All parse_ratings x)
+  in
+  let workflows =
+    List.map workflows_raw ~f:(fun x ->
+      get_results @@ Angstrom.parse_string ~consume:Prefix parse_workflows x)
+  in
+  let wf = Hashtbl.create (module String) in
+  let () = List.iter workflows ~f:(fun x -> Hashtbl.set wf ~key:(fst x) ~data:(snd x)) in
+  let () = Stdlib.print_newline () in
+  let new_ratings = List.map ratings ~f:(rate_em wf) in
+  let sum_of_ratings =
+    List.fold_left new_ratings ~init:0 ~f:(fun acc x ->
+      acc + if x.accepted then x.x + x.m + x.a + x.s else 0)
+  in
+  let out_1 = sum_of_ratings in
   printf "Day 19 Part 1 --> %d\n" out_1
 ;;
 
 (* Part 2 *)
 let part_two () =
   let out_2 = 2 in
-  printf "Day 19 Part 2 --> %d\n" out_2
+  printf "Day 19 Part 2 --> %d\n" out_2;
+  printf "\n\nTESTING: %d = %d --> %b\n\n" out_2 167409079868000 (out_2 = 167409079868000)
 ;;
 
 let main () =
