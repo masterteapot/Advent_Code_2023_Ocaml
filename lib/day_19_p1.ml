@@ -32,9 +32,10 @@ type operation =
 let parse_input ls =
   let rec aux ls w acc =
     match ls with
-    | "" :: tl -> List.rev acc
+    | "" :: [] -> List.rev w, List.rev acc
+    | [] -> List.rev w, List.rev acc
+    | "" :: tl -> aux tl acc []
     | hd :: tl -> aux tl w (hd :: acc)
-    | _ -> failwith "Should have already exited"
   in
   aux ls [] []
 ;;
@@ -202,6 +203,15 @@ let parse_workflows =
     key, r_fun
 ;;
 
+let rate_em wf r =
+  let rec aux r = function
+    | Accept -> { r with accepted = true }
+    | Reject -> { r with accepted = false }
+    | Next x -> aux r ((Hashtbl.find_exn wf x) r)
+  in
+  aux r (Next "in")
+;;
+
 let get_results = function
   | Stdlib.Ok x -> x
   | _ -> failwith "NO RESULTS"
@@ -212,30 +222,34 @@ let get_result_string = function
   | _ -> "fail"
 ;;
 
-let input = read_lines "inputs/19_t.txt"
-let workflows_raw = parse_input input
-
-(* sf{m<1613:A,x>1749:R,s<2024:R,R} *)
-
-let workflows =
-  List.map workflows_raw ~f:(fun x ->
-    get_results @@ Angstrom.parse_string ~consume:Prefix parse_workflows x)
+let print_ratings r =
+  printf "{x: %d; m: %d; a: %d; s: %d; accepted: %b}\n" r.x r.m r.a r.s r.accepted
 ;;
 
-let wf = Hashtbl.create (module String)
-let () = List.iter workflows ~f:(fun x -> Hashtbl.set wf ~key:(fst x) ~data:(snd x))
-
 (* Part 1 *)
-let part_one () = Day_19_p1.main ()
-
-(* Part 2 *)
-let part_two () =
-  let out_2 = 2 in
-  printf "Day 19 Part 2 --> %d\n" out_2;
-  printf "\n\nTESTING: %d = %d --> %b\n\n" out_2 167409079868000 (out_2 = 167409079868000)
+let part_one () =
+  let input = read_lines "inputs/19.txt" in
+  let workflows_raw, ratings_raw = parse_input input in
+  let ratings =
+    List.map ratings_raw ~f:(fun x ->
+      get_results @@ Angstrom.parse_string ~consume:All parse_ratings x)
+  in
+  let workflows =
+    List.map workflows_raw ~f:(fun x ->
+      get_results @@ Angstrom.parse_string ~consume:Prefix parse_workflows x)
+  in
+  let wf = Hashtbl.create (module String) in
+  let () = List.iter workflows ~f:(fun x -> Hashtbl.set wf ~key:(fst x) ~data:(snd x)) in
+  let () = Stdlib.print_newline () in
+  let new_ratings = List.map ratings ~f:(rate_em wf) in
+  let sum_of_ratings =
+    List.fold_left new_ratings ~init:0 ~f:(fun acc x ->
+      acc + if x.accepted then x.x + x.m + x.a + x.s else 0)
+  in
+  let out_1 = sum_of_ratings in
+  printf "Day 19 Part 1 --> %d\n" out_1
 ;;
 
 let main () =
   part_one ();
-  part_two ()
 ;;
